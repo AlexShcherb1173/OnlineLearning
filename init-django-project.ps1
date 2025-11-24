@@ -1,14 +1,13 @@
 param(
-  [Parameter(Mandatory=$true)]
+  [Parameter(Mandatory = $true)]
   [string]$ProjectName
 )
 
 $ErrorActionPreference = 'Stop'
-#$PSStyle.OutputRendering = 'PlainText'
 
-function Write-Info($msg){ Write-Host "[*] $msg" -ForegroundColor Cyan }
-function Write-Ok($msg){ Write-Host "[OK] $msg" -ForegroundColor Green }
-function Write-Err($msg){ Write-Host "[ERROR] $msg" -ForegroundColor Red }
+function Write-Info($msg) { Write-Host "[*] $msg" -ForegroundColor Cyan }
+function Write-Ok($msg) { Write-Host "[OK] $msg" -ForegroundColor Green }
+function Write-Err($msg) { Write-Host "[ERROR] $msg" -ForegroundColor Red }
 
 # ---------- Pre-flight ----------
 Write-Info "Checking Python in PATH..."
@@ -23,11 +22,10 @@ python -m venv .venv
 . ".\.venv\Scripts\Activate.ps1"
 Write-Ok "venv activated"
 
-# upgrade pip
 python -m pip install --upgrade pip setuptools wheel
 
 # ---------- Packages ----------
-Write-Info "Installing core packages (Django, DRF, psycopg2-binary, Pillow, dotenv, linters)..."
+Write-Info "Installing core packages..."
 pip install `
   django `
   djangorestframework `
@@ -40,13 +38,12 @@ pip install `
   isort
 
 # ---------- Django project ----------
-Write-Info "Creating Django project: $ProjectName ..."
-django-admin startproject $ProjectName .
+Write-Info "Creating Django project (config) inside current folder..."
+django-admin startproject config .
 
-# optional app
 try { python manage.py startapp core | Out-Null } catch {}
 
-# ---------- .env & .env_example ----------
+# ---------- .env ----------
 Write-Info "Creating .env and .env_example ..."
 @"
 # === Django ===
@@ -67,8 +64,7 @@ SMTP_PORT=587
 SMTP_USE_TLS=True
 SMTP_USER=no-reply@example.com
 SMTP_PASSWORD=change-me-smtp
-"@ | Set-Content -NoNewline -Encoding UTF8 ".env"
-
+"@ | Set-Content -Encoding UTF8 ".env"
 Copy-Item ".env" ".env_example" -Force
 
 # ---------- .gitignore ----------
@@ -104,8 +100,8 @@ Thumbs.db
 .DS_Store
 "@ | Set-Content -Encoding UTF8 ".gitignore"
 
-# ---------- Linters config ----------
-Write-Info "Writing linters config ..."
+# ---------- Linters ----------
+Write-Info "Creating linter configs ..."
 @"
 [tool.black]
 line-length = 88
@@ -154,11 +150,12 @@ See `.env_example` and create your `.env`.
 "@ | Set-Content -Encoding UTF8 "README.md"
 
 # ---------- Patch settings.py ----------
-Write-Info "Patching $ProjectName\settings.py for .env, Postgres, DRF, SMTP ..."
-$sp = Join-Path -Path $PWD -ChildPath "$ProjectName\settings.py"
-$content = Get-Content $sp -Raw
+$settingsPath = Join-Path $PWD "config\settings.py"
+Write-Info "Patching config\settings.py ..."
 
-# 1) imports + dotenv
+$content = Get-Content $settingsPath -Raw
+
+# imports
 $content = $content -replace 'from\s+pathlib\s+import\s+Path\s*', @'
 from pathlib import Path
 import os
@@ -166,15 +163,15 @@ from dotenv import load_dotenv
 load_dotenv()
 '@
 
-# 2) SECRET_KEY / DEBUG / ALLOWED_HOSTS
+# ENV replacements
 $content = $content -replace 'SECRET_KEY\s*=.*', 'SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-change-me")'
 $content = $content -replace 'DEBUG\s*=.*', 'DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"'
 $content = $content -replace 'ALLOWED_HOSTS\s*=.*', 'ALLOWED_HOSTS = [h for h in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") if h]'
 
-# 3) add DRF to INSTALLED_APPS
+# Add DRF
 $content = $content -replace 'INSTALLED_APPS\s*=\s*\[', "INSTALLED_APPS = [`n    'rest_framework',"
 
-# 4) DATABASES -> PostgreSQL (используем безопасную замену через MatchEvaluator)
+# PostgreSQL
 $dbBlock = @"
 DATABASES = {
     'default': {
@@ -187,13 +184,9 @@ DATABASES = {
     }
 }
 "@
-$content = [regex]::Replace(
-    $content,
-    'DATABASES\s*=\s*\{[\s\S]*?\}',
-    { param($m) $dbBlock }
-)
+$content = [regex]::Replace($content, 'DATABASES\s*=\s*\{[\s\S]*?\}', { param($m) $dbBlock })
 
-# 5) SMTP блок — добавляем только если его ещё нет
+# SMTP
 if ($content -notmatch 'EMAIL_BACKEND\s*=') {
 $smtp = @'
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -206,7 +199,7 @@ EMAIL_HOST_PASSWORD = os.getenv('SMTP_PASSWORD', '')
     $content += "`r`n" + $smtp
 }
 
-Set-Content -Path $sp -Value $content -Encoding UTF8
+Set-Content -Path $settingsPath -Value $content -Encoding UTF8
 
 # ---------- requirements ----------
 Write-Info "Freezing requirements.txt ..."
@@ -216,16 +209,16 @@ pip freeze | Set-Content -Encoding UTF8 "requirements.txt"
 Write-Info "Running initial migrations ..."
 python manage.py migrate
 
-# ---------- git init ----------
+# ---------- git ----------
 if (Get-Command git -ErrorAction SilentlyContinue) {
   Write-Info "Initializing git repository ..."
   git init | Out-Null
   git add . | Out-Null
-  git commit -m "Initial Django bootstrap: $ProjectName (venv, linters, Postgres, SMTP, DRF, .env, README)" | Out-Null
+  git commit -m "Initial Django bootstrap ($ProjectName)" | Out-Null
 }
 
 Write-Host ""
-Write-Ok "Project `"$ProjectName`" is ready."
+Write-Ok "Project '$ProjectName' initialized successfully in current directory."
 Write-Host "- Activate venv:  .\.venv\Scripts\Activate.ps1"
 Write-Host "- Run server:     python manage.py runserver"
-Write-Host "- Open in PyCharm: File > Open... (select folder) and pick .venv as interpreter."
+Write-Host "- Open in PyCharm and use .venv as interpreter."
