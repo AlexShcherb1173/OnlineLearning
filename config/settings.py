@@ -32,14 +32,23 @@ ALLOWED_HOSTS = [h for h in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") if 
 # Application definition
 
 INSTALLED_APPS = [
-    'rest_framework',
+    # базовые
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
+    # сторонние
+    "rest_framework",
+
+    # свои приложения
+    "users",
+    "lms",
 ]
+
+AUTH_USER_MODEL = "users.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -78,9 +87,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('POSTGRES_DB', 'OnlineLearning_db'),
-        'USER': os.getenv('POSTGRES_USER', 'OnlineLearning_user'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'change-me-password'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+        'USER': os.getenv('POSTGRES_USER', 'postgres'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+        'HOST': os.getenv('POSTGRES_HOST', '127.0.0.1'),
         'PORT': os.getenv('POSTGRES_PORT', '5432'),
     }
 }
@@ -134,3 +143,6 @@ EMAIL_PORT = int(os.getenv('SMTP_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('SMTP_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.getenv('SMTP_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
