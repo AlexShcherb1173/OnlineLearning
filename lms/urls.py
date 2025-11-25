@@ -9,9 +9,7 @@ from .views import (
 
 """
 URL-конфигурация приложения lms.
-
 Содержит маршруты для работы с курсами и уроками:
-
 1. Курсы (CourseViewSet):
     - Генерируются автоматически через DefaultRouter.
     - Доступные эндпоинты:
@@ -21,18 +19,15 @@ URL-конфигурация приложения lms.
         * PUT    /courses/{id}/     — полное обновление
         * PATCH  /courses/{id}/     — частичное обновление
         * DELETE /courses/{id}/     — удаление курса
-
 2. Уроки (GenericAPIView):
     - path("lessons/") — список и создание уроков:
         * GET  /lessons/            — список всех уроков
         * POST /lessons/            — создание нового урока
-
     - path("lessons/<int:pk>/") — операции над конкретным уроком:
         * GET    /lessons/{id}/     — получить урок
         * PUT    /lessons/{id}/     — полное обновление
         * PATCH  /lessons/{id}/     — частичное обновление
         * DELETE /lessons/{id}/     — удалить урок
-
 На данном этапе проект открыт для свободного тестирования,
 и авторизация не применяется.
 """
@@ -48,7 +43,11 @@ router.register(r"courses", CourseViewSet, basename="course")
 # ----------------------
 urlpatterns = [
     path("lessons/", LessonListCreateAPIView.as_view(), name="lesson-list-create"),
-    path("lessons/<int:pk>/", LessonRetrieveUpdateDestroyAPIView.as_view(), name="lesson-detail"),
+    path(
+        "lessons/<int:pk>/",
+        LessonRetrieveUpdateDestroyAPIView.as_view(),
+        name="lesson-detail",
+    ),
 ]
 
 urlpatterns += router.urls

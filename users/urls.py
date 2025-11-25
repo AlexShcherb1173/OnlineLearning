@@ -5,9 +5,7 @@ from .views import UserViewSet, UserProfileRetrieveUpdateAPIView
 
 """
 URL-конфигурация приложения users.
-
 Содержит два основных набора маршрутов:
-
 1. ViewSet пользователей (UserViewSet) — полный CRUD:
    - GET    /api/users/           — список пользователей
    - POST   /api/users/           — создание пользователя
@@ -15,12 +13,10 @@ URL-конфигурация приложения users.
    - PUT    /api/users/<id>/      — полное обновление
    - PATCH  /api/users/<id>/      — частичное обновление
    - DELETE /api/users/<id>/      — удаление
-
 2. Эндпоинт профиля пользователя (Retrieve/Update):
    - GET    /api/users/profiles/<id>/   — получить профиль пользователя
    - PUT    /api/users/profiles/<id>/   — полностью обновить профиль
    - PATCH  /api/users/profiles/<id>/   — частично обновить профиль
-
 На данном этапе проект открыт для свободного тестирования —
 авторизация и разграничение прав пока не используются.
 """
