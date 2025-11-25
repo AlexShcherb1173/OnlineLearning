@@ -1,0 +1,46 @@
+[
+  {
+    "model": "lms.lesson",
+    "pk": 1,
+    "fields": {
+      "course": 1,
+      "title": "Установка Python и настройка окружения",
+      "description": "Устанавливаем Python, настраиваем venv и знакомимся с инструментами разработки.",
+      "preview": "",
+      "video_link": "https://example.com/python/lesson1"
+    }
+  },
+  {
+    "model": "lms.lesson",
+    "pk": 2,
+    "fields": {
+      "course": 1,
+      "title": "Базовый синтаксис Python",
+      "description": "Переменные, типы данных, ввод/вывод, базовые операции.",
+      "preview": "",
+      "video_link": "https://example.com/python/lesson2"
+    }
+  },
+  {
+    "model": "lms.lesson",
+    "pk": 3,
+    "fields": {
+      "course": 2,
+      "title": "Создаём первый проект на Django",
+      "description": "Структура Django-проекта, настройки, запуск сервера.",
+      "preview": "",
+      "video_link": "https://example.com/django/lesson1"
+    }
+  },
+  {
+    "model": "lms.lesson",
+    "pk": 4,
+    "fields": {
+      "course": 2,
+      "title": "Знакомство с Django REST Framework",
+      "description": "Установка DRF, создание первого API, сериализаторы и viewsets.",
+      "preview": "",
+      "video_link": "https://example.com/django/lesson2"
+    }
+  }
+]
