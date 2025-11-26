@@ -1,0 +1,65 @@
+[
+  {
+    "model": "users.user",
+    "pk": 1,
+    "fields": {
+      "password": "!",
+      "last_login": null,
+      "is_superuser": false,
+      "email": "admin@example.com",
+      "username": "admin",
+      "first_name": "Admin",
+      "last_name": "User",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2025-01-01T00:00:00Z",
+      "phone": "+31000000001",
+      "city": "Amsterdam",
+      "avatar": "",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.user",
+    "pk": 2,
+    "fields": {
+      "password": "!",
+      "last_login": null,
+      "is_superuser": false,
+      "email": "student1@example.com",
+      "username": "student1",
+      "first_name": "Ivan",
+      "last_name": "Ivanov",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2025-01-02T00:00:00Z",
+      "phone": "+31000000002",
+      "city": "Rotterdam",
+      "avatar": "",
+      "groups": [],
+      "user_permissions": []
+    }
+  },
+  {
+    "model": "users.user",
+    "pk": 3,
+    "fields": {
+      "password": "!",
+      "last_login": null,
+      "is_superuser": false,
+      "email": "student2@example.com",
+      "username": "student2",
+      "first_name": "Anna",
+      "last_name": "Petrova",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2025-01-03T00:00:00Z",
+      "phone": "+31000000003",
+      "city": "Utrecht",
+      "avatar": "",
+      "groups": [],
+      "user_permissions": []
+    }
+  }
+]
