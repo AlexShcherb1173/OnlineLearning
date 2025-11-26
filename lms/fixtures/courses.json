@@ -1,0 +1,20 @@
+[
+  {
+    "model": "lms.course",
+    "pk": 1,
+    "fields": {
+      "title": "Python для начинающих",
+      "preview": "",
+      "description": "Введение в Python: синтаксис, переменные, условия, циклы."
+    }
+  },
+  {
+    "model": "lms.course",
+    "pk": 2,
+    "fields": {
+      "title": "Django и Django REST Framework",
+      "preview": "",
+      "description": "Создание веб-приложений и REST API с использованием Django и DRF."
+    }
+  }
+]
