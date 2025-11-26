@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import User
+from .models import User, Payment
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -36,6 +36,36 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ["id"]
 
 
+class PaymentSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор модели Payment.
+    Используется для:
+    - списка платежей (/api/users/payments/)
+    - вложенного вывода истории платежей в профиле пользователя.
+    Поля:
+        id            — идентификатор платежа
+        user          — пользователь, совершивший оплату
+        paid_at       — дата и время оплаты
+        course        — оплаченный курс (может быть null)
+        lesson        — оплаченный урок (может быть null)
+        amount        — сумма
+        payment_method — способ оплаты: "cash" или "transfer"
+    """
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "user",
+            "paid_at",
+            "course",
+            "lesson",
+            "amount",
+            "payment_method",
+        ]
+        read_only_fields = ["id"]
+
+
 class UserProfileSerializer(serializers.ModelSerializer):
     """
     Сериализатор профиля пользователя.
@@ -50,11 +80,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
         - phone: номер телефона
         - city: город проживания
         - avatar: аватар пользователя
-    Используется в UserProfileRetrieveUpdateAPIView и подходит
-    для UPDATE/PATCH профиля без административных полей:
-    без is_staff, is_superuser, groups, permissions и других
-    "служебных" атрибутов.
+    Используется в UserProfileRetrieveUpdateAPIView для:
+    - просмотра и редактирования профильных данных пользователя;
+    - вывода истории платежей пользователя (вложенный список payments).
     """
+
+    # история платежей пользователя (related_name="payments" в модели Payment)
+    payments = PaymentSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -66,5 +98,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "phone",
             "city",
             "avatar",
+            "payments",
         ]
         read_only_fields = ["id"]

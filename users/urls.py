@@ -1,7 +1,11 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path
 
-from .views import UserViewSet, UserProfileRetrieveUpdateAPIView
+from .views import (
+    UserViewSet,
+    UserProfileRetrieveUpdateAPIView,
+    PaymentListAPIView,
+)
 
 """
 URL-конфигурация приложения users.
@@ -35,6 +39,11 @@ urlpatterns = [
         "profiles/<int:pk>/",
         UserProfileRetrieveUpdateAPIView.as_view(),
         name="user-profile-detail",
+    ),
+    path(
+        "payments/",
+        PaymentListAPIView.as_view(),
+        name="payment-list",
     ),
 ]
 

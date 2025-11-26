@@ -20,7 +20,7 @@ class CourseViewSet(viewsets.ModelViewSet):
     особенно при работе с сущностями верхнего уровня (например, курсы).
     """
 
-    queryset = Course.objects.all()
+    queryset = Course.objects.all().prefetch_related("lessons")
     serializer_class = CourseSerializer
     # По условию проекта авторизацию пока не используем.
 

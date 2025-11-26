@@ -1,0 +1,38 @@
+[
+  {
+    "model": "users.payment",
+    "pk": 1,
+    "fields": {
+      "user": 2,
+      "paid_at": "2025-01-10T10:00:00Z",
+      "course": 1,
+      "lesson": null,
+      "amount": "99.90",
+      "payment_method": "transfer"
+    }
+  },
+  {
+    "model": "users.payment",
+    "pk": 2,
+    "fields": {
+      "user": 3,
+      "paid_at": "2025-01-11T15:30:00Z",
+      "course": 2,
+      "lesson": null,
+      "amount": "149.00",
+      "payment_method": "cash"
+    }
+  },
+  {
+    "model": "users.payment",
+    "pk": 3,
+    "fields": {
+      "user": 2,
+      "paid_at": "2025-01-12T09:15:00Z",
+      "course": null,
+      "lesson": 3,
+      "amount": "39.90",
+      "payment_method": "transfer"
+    }
+  }
+]

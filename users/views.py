@@ -1,7 +1,8 @@
 from rest_framework import viewsets, generics
+from rest_framework.request import Request
 
-from .models import User
-from .serializers import UserSerializer, UserProfileSerializer
+from .models import User, Payment
+from .serializers import UserSerializer, UserProfileSerializer, PaymentSerializer
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -42,3 +43,52 @@ class UserProfileRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
     queryset = User.objects.all()
     serializer_class = UserProfileSerializer
     lookup_field = "pk"
+
+
+class PaymentListAPIView(generics.ListAPIView):
+    """
+    Эндпоинт для вывода списка платежей с фильтрацией и сортировкой.
+    Поддерживаемые query-параметры:
+    - ?course=<id>          — фильтрация по курсу
+    - ?lesson=<id>          — фильтрация по уроку
+    - ?payment_method=...   — фильтрация по способу оплаты
+                              (значения: "cash", "transfer")
+    - ?ordering=paid_at     — сортировка по дате оплаты (по возрастанию)
+    - ?ordering=-paid_at    — сортировка по дате оплаты (по убыванию)
+    Примеры:
+        GET /api/users/payments/
+        GET /api/users/payments/?course=1
+        GET /api/users/payments/?lesson=3&payment_method=cash
+        GET /api/users/payments/?payment_method=transfer&ordering=paid_at
+    """
+
+    serializer_class = PaymentSerializer
+
+    def get_queryset(self):
+        request: Request = self.request
+        qs = Payment.objects.select_related("user", "course", "lesson")
+
+        # фильтрация по курсу
+        course_id = request.query_params.get("course")
+        if course_id:
+            qs = qs.filter(course_id=course_id)
+
+        # фильтрация по уроку
+        lesson_id = request.query_params.get("lesson")
+        if lesson_id:
+            qs = qs.filter(lesson_id=lesson_id)
+
+        # фильтрация по способу оплаты
+        payment_method = request.query_params.get("payment_method")
+        if payment_method:
+            qs = qs.filter(payment_method=payment_method)
+
+        # сортировка по дате
+        ordering = request.query_params.get("ordering")
+        if ordering in ("paid_at", "-paid_at"):
+            qs = qs.order_by(ordering)
+        else:
+            # по умолчанию — самые свежие платежи сверху
+            qs = qs.order_by("-paid_at")
+
+        return qs

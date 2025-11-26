@@ -1,5 +1,9 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.conf import settings
+from django.db.models import Q, CheckConstraint, F
+
+from lms.models import Course, Lesson
 
 
 class User(AbstractUser):
@@ -74,3 +78,84 @@ class User(AbstractUser):
     class Meta:
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
+
+
+class Payment(models.Model):
+    """
+    Платёж за курс или урок.
+    Поля:
+        user        — пользователь, совершивший оплату (FK на кастомную модель User)
+        paid_at     — дата и время оплаты
+        course      — оплаченный курс (может быть пустым, если оплачен только урок)
+        lesson      — оплаченный урок (может быть пустым, если оплачен только курс)
+        amount      — сумма оплаты
+        payment_method — способ оплаты (наличные или перевод на счёт)
+    Важно:
+        - хотя по формулировке "оплаченный курс или урок" подразумевается
+          взаимоисключающий выбор, в модели оставляем оба поля с возможностью null.
+          Логика "либо курс, либо урок" может контролироваться на уровне бизнес-логики.
+    """
+
+    class PaymentMethod(models.TextChoices):
+        CASH = "cash", "Наличные"
+        TRANSFER = "transfer", "Перевод на счёт"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="payments",
+        verbose_name="Пользователь",
+    )
+
+    paid_at = models.DateTimeField(
+        verbose_name="Дата и время оплаты",
+    )
+
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Оплаченный курс",
+    )
+
+    lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Оплаченный урок",
+    )
+
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Сумма оплаты",
+    )
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PaymentMethod.choices,
+        verbose_name="Способ оплаты",
+    )
+
+    def __str__(self):
+        target = self.course or self.lesson
+        return f"Платёж #{self.pk} от {self.user} за {target} на {self.amount}"
+
+    class Meta:
+        verbose_name = "Платёж"
+        verbose_name_plural = "Платежи"
+        ordering = ["-paid_at"]
+
+        constraints = [
+            CheckConstraint(
+                check=(
+                    (Q(course__isnull=False) & Q(lesson__isnull=True))
+                    | (Q(course__isnull=True) & Q(lesson__isnull=False))
+                ),
+                name="payment_has_exactly_one_target",
+            )
+        ]
