@@ -55,10 +55,19 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Сторонние приложения
     "rest_framework",
+    "django_filters",
     # Приложения проекта
     "users",
     "lms",
 ]
+
+
+REST_FRAMEWORK = {
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ],
+}
 
 # Указываем кастомную модель пользователя
 AUTH_USER_MODEL = "users.User"
