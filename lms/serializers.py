@@ -30,8 +30,9 @@ class LessonSerializer(serializers.ModelSerializer):
             "description",
             "preview",
             "video_link",
+            "owner",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "owner"]
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -68,8 +69,9 @@ class CourseSerializer(serializers.ModelSerializer):
             "description",
             "lessons",
             "lessons_count",
+            "owner",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "owner"]
 
     def get_lessons_count(self, obj) -> int:
         """

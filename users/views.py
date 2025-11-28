@@ -1,14 +1,16 @@
 from rest_framework import viewsets, generics
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 
 from .models import User, Payment
+from users.permissions import IsProfileOwner
 from .serializers import (
     UserSerializer,
     UserProfileSerializer,
     PaymentSerializer,
     UserRegisterSerializer,
+    UserPublicSerializer,
 )
 
 
@@ -42,14 +44,27 @@ class UserProfileRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
     информации пользователя — имени, города, телефона и аватарки.
     Используется Generic-класс DRF, поскольку он более точечно отражает
     логику обновления одного объекта и делает код чище.
-
-    На текущем этапе доступ открыт без авторизации, что соответствует
-    условиям задачи (позже можно добавить проверку владельца профиля).
+    Просмотр профиля (любой пользователь видит)
+    Редактирование — только владелец профиля
+    Публичные поля при просмотре чужого профиля
     """
 
     queryset = User.objects.all()
     serializer_class = UserProfileSerializer
     lookup_field = "pk"
+    permission_classes = [IsAuthenticated, IsProfileOwner]
+
+    def get_serializer_class(self):
+        """
+        Если пользователь смотрит СВОЙ профиль → полный сериализатор.
+        Если чужой → публичный сериализатор.
+        """
+        user = self.request.user
+        obj = self.get_object()
+
+        if obj == user:
+            return UserProfileSerializer
+        return UserPublicSerializer
 
 
 class PaymentListAPIView(generics.ListAPIView):
@@ -84,6 +99,7 @@ class PaymentListAPIView(generics.ListAPIView):
 
     # сортировка по умолчанию: самые свежие платежи сверху
     ordering = ["-paid_at"]
+
 
 class RegisterAPIView(generics.CreateAPIView):
     """

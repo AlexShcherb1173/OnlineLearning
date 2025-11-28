@@ -102,6 +102,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+
 class UserRegisterSerializer(serializers.ModelSerializer):
     """
     Сериализатор для регистрации новых пользователей.
@@ -136,3 +137,20 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class UserPublicSerializer(serializers.ModelSerializer):
+    """
+    Публичные данные пользователя — то, что можно показывать другим.
+    """
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "city",
+            "avatar",
+        ]
+        read_only_fields = fields
