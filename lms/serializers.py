@@ -30,8 +30,9 @@ class LessonSerializer(serializers.ModelSerializer):
             "description",
             "preview",
             "video_link",
+            "owner",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "owner"]
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -56,6 +57,9 @@ class CourseSerializer(serializers.ModelSerializer):
     # вложенные уроки только для чтения (GET)
     lessons = LessonSerializer(many=True, read_only=True)
 
+    # количество уроков в курсе
+    lessons_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Course
         fields = [
@@ -64,5 +68,15 @@ class CourseSerializer(serializers.ModelSerializer):
             "preview",
             "description",
             "lessons",
+            "lessons_count",
+            "owner",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "owner"]
+
+    def get_lessons_count(self, obj) -> int:
+        """
+        Возвращает количество уроков, связанных с данным курсом.
+        Используется SerializerMethodField, чтобы явно контролировать
+        способ вычисления значения.
+        """
+        return obj.lessons.count()
