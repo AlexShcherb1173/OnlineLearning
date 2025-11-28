@@ -1,10 +1,15 @@
 from rest_framework import viewsets, generics
-from rest_framework.request import Request
+from rest_framework.permissions import AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 
 from .models import User, Payment
-from .serializers import UserSerializer, UserProfileSerializer, PaymentSerializer
+from .serializers import (
+    UserSerializer,
+    UserProfileSerializer,
+    PaymentSerializer,
+    UserRegisterSerializer,
+)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -79,3 +84,23 @@ class PaymentListAPIView(generics.ListAPIView):
 
     # сортировка по умолчанию: самые свежие платежи сверху
     ordering = ["-paid_at"]
+
+class RegisterAPIView(generics.CreateAPIView):
+    """
+    Эндпоинт регистрации нового пользователя.
+    Доступен без авторизации:
+    POST /api/users/register/
+    Ожидает:
+    {
+      "email": "user@example.com",
+      "password": "strong_password",
+      "first_name": "Имя",
+      "last_name": "Фамилия",
+      "phone": "+3100000000",
+      "city": "Amsterdam"
+    }
+    """
+
+    queryset = User.objects.all()
+    serializer_class = UserRegisterSerializer
+    permission_classes = [AllowAny]

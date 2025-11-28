@@ -101,3 +101,38 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "payments",
         ]
         read_only_fields = ["id"]
+
+class UserRegisterSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для регистрации новых пользователей.
+    При создании:
+    - хэширует пароль через set_password
+    - создаёт пользователя с email в качестве логина.
+    """
+
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        help_text="Пароль (минимум 8 символов)",
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "password",
+            "first_name",
+            "last_name",
+            "phone",
+            "city",
+            "avatar",
+        ]
+        read_only_fields = ["id"]
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
