@@ -1,7 +1,11 @@
-from rest_framework import viewsets, generics
+from rest_framework import viewsets, generics, status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .paginators import StandardResultsSetPagination
 
-from .models import Course, Lesson
+from .models import Course, Lesson, Subscription
 from .serializers import CourseSerializer, LessonSerializer
 from users.permissions import IsModeratorOrAdmin, IsOwner
 
@@ -24,6 +28,7 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     queryset = Course.objects.all().prefetch_related("lessons")
     serializer_class = CourseSerializer
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         """
@@ -78,6 +83,7 @@ class LessonListCreateAPIView(generics.ListCreateAPIView):
 
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
@@ -138,3 +144,50 @@ class LessonRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
             permission_classes = [IsAuthenticated]
 
         return [perm() for perm in permission_classes]
+
+class CourseSubscriptionAPIView(APIView):
+    """
+    Тоггл-подписка на курс для текущего пользователя.
+    POST /api/lms/courses/subscribe/
+    Ожидает в теле запроса:
+    {
+      "course_id": <id курса>
+    }
+    Логика:
+      - если подписка уже существует → удаляем, возвращаем "подписка удалена"
+      - если подписки нет → создаём, возвращаем "подписка добавлена"
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        course_id = request.data.get("course_id") or request.data.get("course")
+
+        if not course_id:
+            return Response(
+                {"detail": "Не указан course_id."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        course = get_object_or_404(Course, pk=course_id)
+
+        subs_qs = Subscription.objects.filter(user=user, course=course)
+
+        if subs_qs.exists():
+            subs_qs.delete()
+            message = "подписка удалена"
+            is_subscribed = False
+        else:
+            Subscription.objects.create(user=user, course=course)
+            message = "подписка добавлена"
+            is_subscribed = True
+
+        return Response(
+            {
+                "message": message,
+                "course_id": course.id,
+                "is_subscribed": is_subscribed,
+            },
+            status=status.HTTP_200_OK,
+        )

@@ -1,6 +1,7 @@
 from rest_framework import serializers
+from .validators import validate_only_youtube
 
-from .models import Course, Lesson
+from .models import Course, Lesson, Subscription
 
 
 class LessonSerializer(serializers.ModelSerializer):
@@ -19,7 +20,14 @@ class LessonSerializer(serializers.ModelSerializer):
     Применяется в CRUD-операциях для уроков:
     - ListCreateAPIView (список и создание)
     - RetrieveUpdateDestroyAPIView (детальный просмотр и редактирование)
+     Важное ограничение:
+    - поле video_link допускает только ссылки на YouTube (youtube.com / youtu.be).
     """
+
+    video_link = serializers.URLField(
+        validators=[validate_only_youtube],
+        help_text="Ссылка на YouTube-видео (youtube.com или youtu.be).",
+    )
 
     class Meta:
         model = Lesson
@@ -60,6 +68,9 @@ class CourseSerializer(serializers.ModelSerializer):
     # количество уроков в курсе
     lessons_count = serializers.SerializerMethodField()
 
+    # признак подписки текущего пользователя
+    is_subscribed = serializers.SerializerMethodField()
+
     class Meta:
         model = Course
         fields = [
@@ -70,8 +81,9 @@ class CourseSerializer(serializers.ModelSerializer):
             "lessons",
             "lessons_count",
             "owner",
+            "is_subscribed",
         ]
-        read_only_fields = ["id", "owner"]
+        read_only_fields = ["id", "owner", "lessons_count", "is_subscribed"]
 
     def get_lessons_count(self, obj) -> int:
         """
@@ -80,3 +92,15 @@ class CourseSerializer(serializers.ModelSerializer):
         способ вычисления значения.
         """
         return obj.lessons.count()
+
+    def get_is_subscribed(self, obj) -> bool:
+        """
+        Возвращает True, если текущий пользователь подписан на курс.
+        Для неавторизованных — всегда False.
+        """
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            return False
+
+        user = request.user
+        return obj.subscriptions.filter(user=user).exists()
