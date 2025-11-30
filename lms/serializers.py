@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .validators import validate_only_youtube
 
-from .models import Course, Lesson, Subscription
+from .models import Course, Lesson
 
 
 class LessonSerializer(serializers.ModelSerializer):

@@ -129,6 +129,7 @@ class Lesson(models.Model):
         verbose_name_plural = "Уроки"
         ordering = ["course", "id"]
 
+
 class Subscription(models.Model):
     """
     Подписка пользователя на обновления курса.

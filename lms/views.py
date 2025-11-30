@@ -145,6 +145,7 @@ class LessonRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
         return [perm() for perm in permission_classes]
 
+
 class CourseSubscriptionAPIView(APIView):
     """
     Тоггл-подписка на курс для текущего пользователя.
