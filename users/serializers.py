@@ -39,6 +39,7 @@ class UserSerializer(serializers.ModelSerializer):
 class PaymentSerializer(serializers.ModelSerializer):
     """
     Сериализатор модели Payment.
+    Включает основные поля + Stripe-поля и статус.
     Используется для:
     - списка платежей (/api/users/payments/)
     - вложенного вывода истории платежей в профиле пользователя.
@@ -58,12 +59,26 @@ class PaymentSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "paid_at",
-            "course",
-            "lesson",
             "amount",
             "payment_method",
+            "course",
+            "lesson",
+            "status",
+            "stripe_product_id",
+            "stripe_price_id",
+            "stripe_session_id",
+            "stripe_checkout_url",
         ]
-        read_only_fields = ["id"]
+        read_only_fields = [
+            "id",
+            "paid_at",
+            "status",
+            "stripe_product_id",
+            "stripe_price_id",
+            "stripe_session_id",
+            "stripe_checkout_url",
+            "user",
+        ]
 
 
 class UserProfileSerializer(serializers.ModelSerializer):

@@ -21,6 +21,7 @@ pyflakes==3.4.0
 python-dotenv==1.2.1
 pytokens==0.3.0
 setuptools==80.9.0
+stripe>=10.0.0
 sqlparse==0.5.3
 typing_extensions==4.15.0
 tzdata==2025.2

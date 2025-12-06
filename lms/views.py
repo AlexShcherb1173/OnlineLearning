@@ -1,4 +1,5 @@
 from rest_framework import viewsets, generics, status
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiTypes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
@@ -10,6 +11,41 @@ from .serializers import CourseSerializer, LessonSerializer
 from users.permissions import IsModeratorOrAdmin, IsOwner
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="Список курсов",
+        description="Возвращает список курсов с количеством и списком уроков.",
+        tags=["Курсы"],
+    ),
+    retrieve=extend_schema(
+        summary="Детальная информация о курсе",
+        description=(
+            "Возвращает один курс, включая количество уроков (lessons_count) "
+            "и вложенный список уроков (lessons)."
+        ),
+        tags=["Курсы"],
+    ),
+    create=extend_schema(
+        summary="Создать курс",
+        description="Создаёт новый курс. Владелец курса устанавливается по текущему пользователю.",
+        tags=["Курсы"],
+    ),
+    update=extend_schema(
+        summary="Обновить курс",
+        description="Полностью обновляет данные курса.",
+        tags=["Курсы"],
+    ),
+    partial_update=extend_schema(
+        summary="Частично обновить курс",
+        description="Частично обновляет данные курса.",
+        tags=["Курсы"],
+    ),
+    destroy=extend_schema(
+        summary="Удалить курс",
+        description="Удаляет курс (если права доступа позволяют).",
+        tags=["Курсы"],
+    ),
+)
 class CourseViewSet(viewsets.ModelViewSet):
     """
     ViewSet для полной CRUD-работы с моделью Course.
@@ -69,6 +105,14 @@ class CourseViewSet(viewsets.ModelViewSet):
         serializer.save(owner=self.request.user)
 
 
+@extend_schema(
+    summary="Список уроков / создание урока",
+    description=(
+        "GET - список всех уроков (с пагинацией).\n"
+        "POST - создание нового урока, автоматически привязанного к владельцу."
+    ),
+    tags=["Уроки"],
+)
 class LessonListCreateAPIView(generics.ListCreateAPIView):
     """
     Представление для вывода списка уроков и создания нового урока.
@@ -114,6 +158,15 @@ class LessonListCreateAPIView(generics.ListCreateAPIView):
         serializer.save(owner=self.request.user)
 
 
+@extend_schema(
+    summary="Работа с конкретным уроком",
+    description=(
+        "GET - получение одного урока.\n"
+        "PUT/PATCH - изменение урока.\n"
+        "DELETE - удаление урока (с учётом прав доступа)."
+    ),
+    tags=["Уроки"],
+)
 class LessonRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     Представление для работы с конкретным уроком по его ID.
@@ -146,6 +199,24 @@ class LessonRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         return [perm() for perm in permission_classes]
 
 
+@extend_schema(
+    summary="Подписка/отписка от курса",
+    description=(
+        "Позволяет текущему авторизованному пользователю подписаться на курс или "
+        "отписаться от него.\n\n"
+        'Тело запроса: {"course_id": <ID курса>}.\n'
+        "Если подписка была — она удаляется, возвращается message='подписка удалена'.\n"
+        "Если подписки не было — она создаётся, возвращается message='подписка добавлена'."
+    ),
+    tags=["Подписки"],
+    request={
+        "application/json": {
+            "type": "object",
+            "properties": {"course_id": {"type": "integer"}},
+        }
+    },
+    responses={200: OpenApiTypes.OBJECT},
+)
 class CourseSubscriptionAPIView(APIView):
     """
     Тоггл-подписка на курс для текущего пользователя.

@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
 from django.db.models import Q, CheckConstraint
@@ -6,62 +6,12 @@ from django.db.models import Q, CheckConstraint
 from lms.models import Course, Lesson
 
 
-class CustomUserManager(BaseUserManager):
-    """
-    Кастомный менеджер пользователя с авторизацией по email.
-    """
-
-    def create_user(self, email, password=None, **extra_fields):
-        if not email:
-            raise ValueError("Необходимо указать email")
-
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, email, password=None, **extra_fields):
-        """
-        Создание суперпользователя.
-        username нам не нужен, работаем только с email.
-        """
-        extra_fields.setdefault("is_staff", True)
-        extra_fields.setdefault("is_superuser", True)
-        extra_fields.setdefault("is_active", True)
-
-        if extra_fields.get("is_staff") is not True:
-            raise ValueError("Суперпользователь должен иметь is_staff=True.")
-        if extra_fields.get("is_superuser") is not True:
-            raise ValueError("Суперпользователь должен иметь is_superuser=True.")
-
-        return self.create_user(email, password, **extra_fields)
-
-
 class User(AbstractUser):
     """
     Кастомная модель пользователя для проекта OnlineLearning.
-    Расширяет стандартную модель Django `AbstractUser`, оставляя все её поля,
-    но изменяет механизм аутентификации и добавляет дополнительные
-    пользовательские атрибуты.
-    Основные отличия от стандартного пользователя:
-    1. Авторизация по email:
-        - Поле email становится уникальным.
-        - Поле username сохраняется, но делается необязательным.
-        - USERNAME_FIELD установлен в "email".
-        - REQUIRED_FIELDS пуст — при создании суперпользователя будет
-          запрошен только email и пароль.
-    2. Дополнительные поля профиля:
-        - phone: контактный номер телефона
-        - city: город проживания
-        - avatar: изображение аватара, загружаемое в media/users/avatars/
-    Поведение:
-        - __str__ возвращает email пользователя (удобно для админки).
-        - Модель объявлена в settings.py как AUTH_USER_MODEL.
+    Авторизация по email, username необязателен.
     """
 
-    # Делаем username необязательным — он остаётся в модели,
-    # что упрощает совместимость, но не используется для авторизации.
     username = models.CharField(
         max_length=150,
         unique=False,
@@ -70,13 +20,11 @@ class User(AbstractUser):
         verbose_name="Имя пользователя",
     )
 
-    # Уникальный email — ключевой идентификатор.
     email = models.EmailField(
         unique=True,
         verbose_name="Email",
     )
 
-    # Дополнительные поля профиля
     phone = models.CharField(
         max_length=20,
         blank=True,
@@ -97,14 +45,10 @@ class User(AbstractUser):
         verbose_name="Аватар",
     )
 
-    # Настройки аутентификации
-    USERNAME_FIELD = "email"  # Используем email вместо username
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
-    objects = CustomUserManager()
-
     def __str__(self):
-        """Возвращаем email пользователя для удобного отображения в админке."""
         return self.email or super().__str__()
 
     class Meta:
@@ -115,22 +59,19 @@ class User(AbstractUser):
 class Payment(models.Model):
     """
     Платёж за курс или урок.
-    Поля:
-        user        — пользователь, совершивший оплату (FK на кастомную модель User)
-        paid_at     — дата и время оплаты
-        course      — оплаченный курс (может быть пустым, если оплачен только урок)
-        lesson      — оплаченный урок (может быть пустым, если оплачен только курс)
-        amount      — сумма оплаты
-        payment_method — способ оплаты (наличные или перевод на счёт)
-    Важно:
-        - хотя по формулировке "оплаченный курс или урок" подразумевается
-          взаимоисключающий выбор, в модели оставляем оба поля с возможностью null.
-          Логика "либо курс, либо урок" может контролироваться на уровне бизнес-логики.
+
+    Ровно один из двух FK:
+      - либо course не NULL и lesson NULL
+      - либо course NULL и lesson не NULL
     """
 
     class PaymentMethod(models.TextChoices):
         CASH = "cash", "Наличные"
         TRANSFER = "transfer", "Перевод на счёт"
+
+    # Алиасы, чтобы можно было писать Payment.PAYMENT_METHOD_CASH / TRANSFER
+    PAYMENT_METHOD_CASH = PaymentMethod.CASH
+    PAYMENT_METHOD_TRANSFER = PaymentMethod.TRANSFER
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -141,6 +82,8 @@ class Payment(models.Model):
 
     paid_at = models.DateTimeField(
         verbose_name="Дата и время оплаты",
+        null=True,
+        blank=True,
     )
 
     course = models.ForeignKey(
@@ -173,15 +116,60 @@ class Payment(models.Model):
         verbose_name="Способ оплаты",
     )
 
+    # --- Stripe-поля ---
+    stripe_product_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="ID продукта в Stripe",
+        help_text="stripe.Product.id",
+    )
+    stripe_price_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="ID цены в Stripe",
+        help_text="stripe.Price.id",
+    )
+    stripe_session_id = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="ID сессии Checkout",
+        help_text="stripe.CheckoutSession.id",
+    )
+    stripe_checkout_url = models.URLField(
+        max_length=1000,
+        blank=True,
+        null=True,
+        verbose_name="Ссылка на оплату в Stripe",
+    )
+
+    # --- Статус оплаты ---
+    STATUS_PENDING = "pending"
+    STATUS_PAID = "paid"
+    STATUS_CANCELED = "canceled"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Ожидает оплаты"),
+        (STATUS_PAID, "Оплачен"),
+        (STATUS_CANCELED, "Отменён"),
+    ]
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        verbose_name="Статус платежа",
+    )
+
     def __str__(self):
-        target = self.course or self.lesson
+        target = self.course or self.lesson or "неизвестный объект"
         return f"Платёж #{self.pk} от {self.user} за {target} на {self.amount}"
 
     class Meta:
         verbose_name = "Платёж"
         verbose_name_plural = "Платежи"
         ordering = ["-paid_at"]
-
         constraints = [
             CheckConstraint(
                 check=(
