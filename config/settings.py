@@ -18,6 +18,7 @@ Django settings for OnlineLearning project.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Загружаем переменные окружения из файла .env
 load_dotenv()
@@ -55,10 +56,36 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Сторонние приложения
     "rest_framework",
+    "django_filters",
+    "drf_spectacular",
     # Приложения проекта
     "users",
     "lms",
 ]
+
+
+REST_FRAMEWORK = {
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ],
+    #    схема по умолчанию — от drf-spectacular
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=3),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
 
 # Указываем кастомную модель пользователя
 AUTH_USER_MODEL = "users.User"
@@ -184,11 +211,32 @@ EMAIL_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
 EMAIL_HOST_USER = os.getenv("SMTP_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 
-"""
-⚠ Важно:
-EMAIL_BACKEND сейчас указан как:
-    'django.users.mail.backends.smtp.EmailBackend'
-Это выглядит как опечатка. Правильно должно быть:
-    'django.core.mail.backends.smtp.EmailBackend'
-Если не исправить — отправка почты работать не будет.
-"""
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+
+# URL для редиректа после успешной / отменённой оплаты
+STRIPE_SUCCESS_URL = os.getenv(
+    "STRIPE_SUCCESS_URL",
+    "http://127.0.0.1:8000/payments/success/",
+)
+STRIPE_CANCEL_URL = os.getenv(
+    "STRIPE_CANCEL_URL",
+    "http://127.0.0.1:8000/payments/cancel/",
+)
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "OnlineLearning API",
+    "DESCRIPTION": (
+        "API платформы онлайн обучения OnlineLearning.\n\n"
+        "Содержит эндпоинты для работы с пользователями, курсами, уроками, "
+        "платежами и подписками на курсы. Stripe."
+    ),
+    "VERSION": "1.0.0",
+    # Включаем схемы в /api/schema/
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Схема безопасности для JWT (Bearer)
+    "AUTHENTICATION_WHITELIST": [],
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SECURITY": [{"BearerAuth": []}],
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+}

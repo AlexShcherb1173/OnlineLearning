@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 
 class Course(models.Model):
@@ -38,6 +39,15 @@ class Course(models.Model):
     description = models.TextField(
         blank=True,
         verbose_name="Описание курса",
+    )
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="courses",
+        verbose_name="Владелец курса",
+        null=True,
+        blank=True,  # чтобы не падали старые записи
     )
 
     def __str__(self):
@@ -102,6 +112,15 @@ class Lesson(models.Model):
         verbose_name="Ссылка на видео",
     )
 
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lessons",
+        verbose_name="Владелец урока",
+        null=True,
+        blank=True,
+    )
+
     def __str__(self):
         return f"{self.course.title}: {self.title}"
 
@@ -109,3 +128,35 @@ class Lesson(models.Model):
         verbose_name = "Урок"
         verbose_name_plural = "Уроки"
         ordering = ["course", "id"]
+
+
+class Subscription(models.Model):
+    """
+    Подписка пользователя на обновления курса.
+    Один пользователь может быть подписан на один курс не более одного раза.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="course_subscriptions",
+        verbose_name="Пользователь",
+    )
+    course = models.ForeignKey(
+        Course,
+        on_delete=models.CASCADE,
+        related_name="subscriptions",
+        verbose_name="Курс",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Дата подписки",
+    )
+
+    class Meta:
+        verbose_name = "Подписка на курс"
+        verbose_name_plural = "Подписки на курсы"
+        unique_together = ("user", "course")
+
+    def __str__(self):
+        return f"{self.user.email} → {self.course.title}"
