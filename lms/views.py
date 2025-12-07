@@ -2,7 +2,12 @@ from datetime import timedelta
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiTypes
+from drf_spectacular.utils import (
+    extend_schema,
+    extend_schema_view,
+    OpenApiTypes,
+    OpenApiParameter,
+)
 from rest_framework import viewsets, generics, status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
@@ -208,27 +213,29 @@ class LessonRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     description=(
         "Позволяет текущему авторизованному пользователю подписаться на курс или "
         "отписаться от него.\n\n"
-        'Тело запроса: {"course_id": <ID курса>}.\n'
-        "Если подписка была — она удаляется, возвращается message='подписка удалена'.\n"
-        "Если подписки не было — она создаётся, возвращается message='подписка добавлена'."
+        "URL: `/api/lms/courses/{course_id}/subscribe/`\n"
+        "Метод: `POST`\n\n"
+        "- Если подписка уже существует — она **удаляется**, возвращается `message='подписка удалена'`.\n"
+        "- Если подписки не было — она **создаётся**, возвращается `message='подписка добавлена'`."
     ),
     tags=["Подписки"],
-    request={
-        "application/json": {
-            "type": "object",
-            "properties": {"course_id": {"type": "integer"}},
-        }
-    },
+    parameters=[
+        OpenApiParameter(
+            name="course_id",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.PATH,
+            description="ID курса, на который выполняется подписка/отписка",
+            required=True,
+        ),
+    ],
+    request=None,  # тело запроса не ожидается
     responses={200: OpenApiTypes.OBJECT},
 )
 class CourseSubscriptionAPIView(APIView):
     """
     Тоггл-подписка на курс для текущего пользователя.
-    POST /api/lms/courses/subscribe/
-    Ожидает в теле запроса:
-    {
-      "course_id": <id курса>
-    }
+    URL:
+        POST /api/lms/courses/<int:course_id>/subscribe/
     Логика:
       - если подписка уже существует → удаляем, возвращаем "подписка удалена"
       - если подписки нет → создаём, возвращаем "подписка добавлена"
@@ -236,16 +243,8 @@ class CourseSubscriptionAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, course_id: int, *args, **kwargs):
         user = request.user
-        course_id = request.data.get("course_id") or request.data.get("course")
-
-        if not course_id:
-            return Response(
-                {"detail": "Не указан course_id."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         course = get_object_or_404(Course, pk=course_id)
 
         subs_qs = Subscription.objects.filter(user=user, course=course)
