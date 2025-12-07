@@ -6,8 +6,7 @@ class Course(models.Model):
     """
     Модель Course (Курс).
     Представляет учебный курс в системе онлайн-обучения.
-    Содержит основную информацию, включая название, изображение-превью
-    и текстовое описание курса.
+
     Поля:
         title (CharField):
             Название курса. Обязательное поле, используется в административных
@@ -18,12 +17,15 @@ class Course(models.Model):
         description (TextField):
             Текстовое описание курса. Может быть пустым, используется для
             отображения структуры курса на фронтенде.
-    Особенности:
-        - Метод __str__ возвращает название курса.
-        - В Meta определены:
-            verbose_name — человекочитаемое имя модели,
-            verbose_name_plural — множественная форма,
-            ordering — сортировка по названию.
+        owner (ForeignKey):
+            Владелец курса (пользователь системы).
+        last_notification_at (DateTimeField):
+            Время последней рассылки уведомлений об обновлении курса.
+            Используется для ограничения частоты уведомлений (не чаще одного
+            раза в N часов, сейчас — 4 часа).
+        updated_at (DateTimeField):
+            Время последнего изменения курса (auto_now=True).
+            Может использоваться для аналитики и отображения.
     """
 
     title = models.CharField(
@@ -50,7 +52,18 @@ class Course(models.Model):
         blank=True,  # чтобы не падали старые записи
     )
 
-    def __str__(self):
+    last_notification_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="время последней рассылки об обновлении",
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="время последнего изменения курса",
+    )
+
+    def __str__(self) -> str:
         return self.title
 
     class Meta:
@@ -63,8 +76,8 @@ class Lesson(models.Model):
     """
     Модель Lesson (Урок).
     Представляет отдельный учебный урок, который относится
-    к определённому курсу. Каждый урок содержит текстовое описание,
-    изображение-превью и ссылку на видео.
+    к определённому курсу.
+
     Поля:
         course (ForeignKey):
             Внешний ключ на Course. Один курс может содержать много уроков.
@@ -79,13 +92,12 @@ class Lesson(models.Model):
             Загружается в "lessons/previews/".
         video_link (URLField):
             URL-ссылка на видео урока.
+        owner (ForeignKey):
+            Владелец урока (преподаватель / автор).
     Особенности:
         - __str__ возвращает строку вида:
-          "<Название курса>: <Название урока>"
-          удобно для админки.
-        - Meta:
-            verbose_name, verbose_name_plural — человекочитаемые имена,
-            ordering — сортировка по курсу и ID (естественный порядок уроков).
+          "<Название курса>: <Название урока>".
+        - ordering — сортировка по курсу и ID (естественный порядок уроков).
     """
 
     course = models.ForeignKey(
@@ -121,7 +133,7 @@ class Lesson(models.Model):
         blank=True,
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.course.title}: {self.title}"
 
     class Meta:
@@ -133,7 +145,13 @@ class Lesson(models.Model):
 class Subscription(models.Model):
     """
     Подписка пользователя на обновления курса.
-    Один пользователь может быть подписан на один курс не более одного раза.
+
+    Один пользователь может быть подписан на один курс
+    не более одного раза (unique_together).
+
+    Используется для:
+    - асинхронной рассылки писем об обновлении материалов курса;
+    - фильтрации получателей при отправке уведомлений.
     """
 
     user = models.ForeignKey(
@@ -158,5 +176,7 @@ class Subscription(models.Model):
         verbose_name_plural = "Подписки на курсы"
         unique_together = ("user", "course")
 
-    def __str__(self):
-        return f"{self.user.email} → {self.course.title}"
+    def __str__(self) -> str:
+        # Защита от случаев, когда у пользователя нет email
+        email = getattr(self.user, "email", "") or self.user.pk
+        return f"{email} → {self.course.title}"

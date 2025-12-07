@@ -19,6 +19,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
+from celery.schedules import crontab
 
 # Загружаем переменные окружения из файла .env
 load_dotenv()
@@ -171,8 +172,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Интернационализация
 # --------------------------------------------
 
-LANGUAGE_CODE = "en-us"  # Можно изменить на "ru-ru"
-TIME_ZONE = "UTC"
+LANGUAGE_CODE = os.getenv("LANGUAGE_CODE", "en-us")
+TIME_ZONE = os.getenv("TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
 
@@ -204,12 +205,19 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # --------------------------------------------
 # Здесь используется SMTP; все параметры должны быть в .env
 
-EMAIL_BACKEND = "django.users.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+)
 EMAIL_HOST = os.getenv("SMTP_HOST", "smtp.example.com")
 EMAIL_PORT = int(os.getenv("SMTP_PORT", "587"))
 EMAIL_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
 EMAIL_HOST_USER = os.getenv("SMTP_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+
+# --------------------------------------------
+# Stripe
+# --------------------------------------------
 
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
 STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
@@ -223,6 +231,54 @@ STRIPE_CANCEL_URL = os.getenv(
     "STRIPE_CANCEL_URL",
     "http://127.0.0.1:8000/payments/cancel/",
 )
+
+# --------------------------------------------
+# Redis (для Celery)
+# --------------------------------------------
+
+REDIS_HOST = os.getenv("REDIS_HOST", "127.0.0.1")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+
+if REDIS_PASSWORD:
+    REDIS_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+else:
+    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+
+# --------------------------------------------
+# Celery + celery-beat
+# --------------------------------------------
+
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+
+CELERY_TIMEZONE = TIME_ZONE  # тот же, что и у Django
+CELERY_ENABLE_UTC = False  # работаем в локальном TIME_ZONE
+
+# расписания для celery-beat.
+
+CELERY_BEAT_SCHEDULE = {
+    "example-every-5-minutes": {  # тестовый example_periodic_task
+        "task": "lms.tasks.example_periodic_task",
+        "schedule": crontab(minute="*/5"),
+        "args": (),
+    },
+    "deactivate-inactive-users-daily": {
+        "task": "users.tasks.deactivate_inactive_users",
+        # каждый день в 03:00 по TIME_ZONE (Europe/Amsterdam из .env)
+        "schedule": crontab(hour=3, minute=0),
+        "args": (),
+    },
+}
+
+# --------------------------------------------
+# drf-spectacular
+# --------------------------------------------
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "OnlineLearning API",

@@ -1,13 +1,17 @@
-from rest_framework import viewsets, generics, status
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiTypes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from datetime import timedelta
+
 from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
+from django.utils import timezone
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiTypes
+from rest_framework import viewsets, generics, status
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
-from .paginators import StandardResultsSetPagination
+from rest_framework.views import APIView
 
 from .models import Course, Lesson, Subscription
+from .paginators import StandardResultsSetPagination
 from .serializers import CourseSerializer, LessonSerializer
+from .tasks import send_course_update_notifications
 from users.permissions import IsModeratorOrAdmin, IsOwner
 
 
@@ -49,17 +53,6 @@ from users.permissions import IsModeratorOrAdmin, IsOwner
 class CourseViewSet(viewsets.ModelViewSet):
     """
     ViewSet для полной CRUD-работы с моделью Course.
-    Операции:
-        - GET    /courses/          — получить список всех курсов
-        - POST   /courses/          — создать новый курс
-        - GET    /courses/{id}/     — получить данные конкретного курса
-        - PUT    /courses/{id}/     — полностью обновить данные курса
-        - PATCH  /courses/{id}/     — частично обновить выбранные поля курса
-        - DELETE /courses/{id}/     — удалить курс
-    Права доступа:
-      - list, retrieve: любой аутентифицированный пользователь
-     - update/partial_update: модератор или владелец (или админ)
-      - create, destroy: только администраторы (модераторы не могут)
     """
 
     queryset = Course.objects.all().prefetch_related("lessons")
@@ -116,13 +109,6 @@ class CourseViewSet(viewsets.ModelViewSet):
 class LessonListCreateAPIView(generics.ListCreateAPIView):
     """
     Представление для вывода списка уроков и создания нового урока.
-    Операции:
-       - GET /lessons/  — список уроков (аутентифицированные)
-       - POST /lessons/ — создать урок (только админ, владелец будет request.user)
-    Использование Generic ListCreateAPIView позволяет декларативно
-    определить логику отображения и создания объектов Lesson без
-    лишнего дублирования кода. Подходит для случаев, когда требуется
-    только список + создание, без операций над конкретным объектом.
     """
 
     queryset = Lesson.objects.all()
@@ -163,22 +149,16 @@ class LessonListCreateAPIView(generics.ListCreateAPIView):
     description=(
         "GET - получение одного урока.\n"
         "PUT/PATCH - изменение урока.\n"
-        "DELETE - удаление урока (с учётом прав доступа)."
+        "DELETE - удаление урока (с учётом прав доступа).\n\n"
+        "При обновлении урока дополнительно проверяется, не отправлялись ли "
+        "уведомления по курсу за последние 4 часа. Если нет — запускается "
+        "асинхронная рассылка писем подписчикам курса."
     ),
     tags=["Уроки"],
 )
 class LessonRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     Представление для работы с конкретным уроком по его ID.
-    Операции:
-       - GET    /lessons/{id}/ — получить урок (авторизованный пользователь)
-       - PUT    /lessons/{id}/ — изменить (модератор или владелец/админ)
-       - PATCH  /lessons/{id}/ — частично изменить (модератор или владелец/админ)
-       - DELETE /lessons/{id}/ — удалить (только админ)
-    Generic RetrieveUpdateDestroyAPIView обеспечивает лаконичную реализацию
-    стандартного набора операций над одной сущностью Lesson. Этот класс
-    идеально подходит для CRUD над объектами, которые уже существуют
-    и идентифицируются по первичному ключу.
     """
 
     queryset = Lesson.objects.all()
@@ -197,6 +177,30 @@ class LessonRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
             permission_classes = [IsAuthenticated]
 
         return [perm() for perm in permission_classes]
+
+    def perform_update(self, serializer):
+        """
+        При обновлении урока:
+        - сохраняем изменения;
+        - проверяем, когда в последний раз по курсу отправлялись уведомления;
+        - если не было рассылки более 4 часов — запускаем Celery-задачу
+          send_course_update_notifications и обновляем last_notification_at.
+        """
+        lesson = serializer.save()
+        course = lesson.course
+
+        now = timezone.now()
+        last_notif = course.last_notification_at
+        threshold = now - timedelta(hours=4)
+
+        should_notify = last_notif is None or last_notif <= threshold
+
+        if should_notify:
+            # Запуск асинхронной рассылки
+            send_course_update_notifications.delay(course.id, lesson.id)
+            # Обновляем метку последней рассылки, чтобы не слать чаще, чем раз в 4 часа
+            course.last_notification_at = now
+            course.save(update_fields=["last_notification_at"])
 
 
 @extend_schema(
