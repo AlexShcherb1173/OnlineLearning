@@ -1,41 +1,61 @@
 from rest_framework.routers import DefaultRouter
 from django.urls import path
 
-from .views import UserViewSet, UserProfileRetrieveUpdateAPIView
+from .views import (
+    UserViewSet,
+    UserProfileRetrieveUpdateAPIView,
+    PaymentListAPIView,
+    StripeCheckoutCreateAPIView,
+    StripePaymentStatusAPIView,
+)
 
 """
-URL-конфигурация приложения users.
-Содержит два основных набора маршрутов:
-1. ViewSet пользователей (UserViewSet) — полный CRUD:
-   - GET    /api/users/           — список пользователей
-   - POST   /api/users/           — создание пользователя
-   - GET    /api/users/<id>/      — получение конкретного пользователя
-   - PUT    /api/users/<id>/      — полное обновление
-   - PATCH  /api/users/<id>/      — частичное обновление
-   - DELETE /api/users/<id>/      — удаление
-2. Эндпоинт профиля пользователя (Retrieve/Update):
-   - GET    /api/users/profiles/<id>/   — получить профиль пользователя
-   - PUT    /api/users/profiles/<id>/   — полностью обновить профиль
-   - PATCH  /api/users/profiles/<id>/   — частично обновить профиль
-На данном этапе проект открыт для свободного тестирования —
-авторизация и разграничение прав пока не используются.
+    URL-конфигурация приложения users.
+    1. ViewSet пользователей (UserViewSet):
+    2. ViewSet платежей (PaymentViewSet):
+       - CRUD по /api/users/payments/
+    3. Stripe API endpoints:
+      - POST /api/users/payments/stripe-checkout/
+      - GET  /api/users/payments/stripe-status/<id>/
+    4. Профиль пользователя:
+      - GET/PUT/PATCH /api/users/profiles/<id>/
 """
 
 # ----------------------
-# ViewSet пользователей
+# ViewSets
 # ----------------------
 router = DefaultRouter()
 router.register(r"", UserViewSet, basename="user")
 
+
 # ----------------------
-# Эндпоинт профиля
+# Остальные эндпоинты
 # ----------------------
 urlpatterns = [
+    # Профиль пользователя
     path(
         "profiles/<int:pk>/",
         UserProfileRetrieveUpdateAPIView.as_view(),
         name="user-profile-detail",
     ),
+    # Полный список платежей (не ViewSet)
+    path(
+        "payments/all/",
+        PaymentListAPIView.as_view(),
+        name="payment-list-all",
+    ),
+    # Stripe Checkout
+    path(
+        "payments/stripe-checkout/",
+        StripeCheckoutCreateAPIView.as_view(),
+        name="stripe-checkout",
+    ),
+    path(
+        "payments/stripe-status/<int:pk>/",
+        StripePaymentStatusAPIView.as_view(),
+        name="stripe-status",
+    ),
 ]
 
+# Добавляем маршруты ViewSet
 urlpatterns += router.urls

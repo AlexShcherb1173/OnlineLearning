@@ -5,6 +5,7 @@ from .views import (
     CourseViewSet,
     LessonListCreateAPIView,
     LessonRetrieveUpdateDestroyAPIView,
+    CourseSubscriptionAPIView,
 )
 
 """
@@ -48,6 +49,8 @@ urlpatterns = [
         LessonRetrieveUpdateDestroyAPIView.as_view(),
         name="lesson-detail",
     ),
+    path("courses/<int:course_id>/subscribe/", CourseSubscriptionAPIView.as_view(), name="course-subscribe"),
+
 ]
 
 urlpatterns += router.urls
