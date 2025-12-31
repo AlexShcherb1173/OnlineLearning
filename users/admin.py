@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import User
+from .models import User, Payment
 
 
 @admin.register(User)
@@ -73,3 +73,43 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ("is_staff", "is_superuser", "is_active", "groups")
     search_fields = ("email", "first_name", "last_name")
     ordering = ("email",)
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    """
+    Административный интерфейс для модели Payment.
+    Позволяет просматривать и фильтровать платежи за курсы и уроки.
+    Основные возможности:
+        - список платежей с ключевой информацией:
+          пользователь, курс/урок, сумма, способ оплаты, дата
+        - фильтрация по пользователю, курсу, уроку и способу оплаты
+        - поиск по email пользователя и названию курса/урока
+        - удобная навигация по дате оплаты (date_hierarchy)
+    """
+
+    list_display = (
+        "id",
+        "user",
+        "course",
+        "lesson",
+        "amount",
+        "payment_method",
+        "paid_at",
+    )
+    list_filter = (
+        "payment_method",
+        "course",
+        "lesson",
+        "user",
+        "paid_at",
+    )
+    search_fields = (
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "course__title",
+        "lesson__title",
+    )
+    date_hierarchy = "paid_at"
+    ordering = ("-paid_at",)
