@@ -12,6 +12,7 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import path, include
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -30,6 +31,7 @@ from users.views import RegisterAPIView
 # Основные маршруты проекта
 # -----------------------------------------------------------
 urlpatterns = [
+    path("", lambda request: HttpResponse("OK")),
     # Админ-панель Django
     path("admin/", admin.site.urls),
     # API пользователей (регистрация, управление профилем и др.)
