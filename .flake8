@@ -1,3 +1,19 @@
 [flake8]
+# Стандартная длина строки (black-совместимая)
 max-line-length = 119
-exclude = .git, __pycache__
+
+# Исключаем всё, что не является production-кодом
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    .env,
+    .env.*,
+    migrations,
+    */migrations/*,
+    tests,
+    */tests/*,
+    .pytest_cache,
+    htmlcov

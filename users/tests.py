@@ -35,7 +35,7 @@ class UserAuthTests(APITestCase):
         self.assertTrue(User.objects.filter(email="newuser@example.com").exists())
 
     def test_obtain_jwt_token(self):
-        user = UserFactory(email="jwtuser@example.com", password="jwtpass123")
+        # user = UserFactory(email="jwtuser@example.com", password="jwtpass123")
         url = reverse("token_obtain_pair")
 
         data = {"email": "jwtuser@example.com", "password": "jwtpass123"}
