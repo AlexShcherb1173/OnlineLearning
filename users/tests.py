@@ -1,14 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from tests.factories import (
-    UserFactory,
     AdminFactory,
     CourseFactory,
     LessonFactory,
     PaymentFactory,
+    UserFactory,
 )
 
 User = get_user_model()

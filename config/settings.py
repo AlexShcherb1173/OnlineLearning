@@ -15,13 +15,14 @@ Django settings for OnlineLearning project.
     - использовать защищённые email / DB креды.
 """
 
-from pathlib import Path
 import os
-from dotenv import load_dotenv
 from datetime import timedelta
-from celery.schedules import crontab
+from pathlib import Path
 
-# Загружаем переменные окружения из файла .env
+from celery.schedules import crontab
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения из файла .env.docker
 load_dotenv()
 
 # --------------------------------------------
@@ -39,7 +40,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-change-me")
 # Режим отладки.
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
-# Разрешённые хосты (через .env: DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost)
+# Разрешённые хосты (через .env.docker: DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost)
 ALLOWED_HOSTS = [h for h in os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",") if h]
 
 
@@ -140,7 +141,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 # --------------------------------------------
 # Настройки базы данных
 # --------------------------------------------
-# Используется PostgreSQL с параметрами из .env
+# Используется PostgreSQL с параметрами из .env.docker
 
 DATABASES = {
     "default": {
@@ -203,10 +204,10 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # --------------------------------------------
 # Email-настройки
 # --------------------------------------------
-# Здесь используется SMTP; все параметры должны быть в .env
+# Здесь используется SMTP; все параметры должны быть в .env.docker
 
 EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND",
+    "SMTP_BACKEND",
     "django.core.mail.backends.smtp.EmailBackend",
 )
 EMAIL_HOST = os.getenv("SMTP_HOST", "smtp.example.com")
@@ -258,7 +259,7 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 
 CELERY_TIMEZONE = TIME_ZONE  # тот же, что и у Django
-CELERY_ENABLE_UTC = False  # работаем в локальном TIME_ZONE
+CELERY_ENABLE_UTC = True
 
 # расписания для celery-beat.
 
@@ -270,7 +271,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     "deactivate-inactive-users-daily": {
         "task": "users.tasks.deactivate_inactive_users",
-        # каждый день в 03:00 по TIME_ZONE (Europe/Amsterdam из .env)
+        # каждый день в 03:00 по TIME_ZONE (Europe/Amsterdam из .env.docker)
         "schedule": crontab(hour=3, minute=0),
         "args": (),
     },

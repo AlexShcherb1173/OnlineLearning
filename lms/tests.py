@@ -1,15 +1,15 @@
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from lms.models import Course, Lesson, Subscription
 from tests.factories import (
     AdminFactory,
-    UserFactory,
-    ModeratorFactory,
     CourseFactory,
     LessonFactory,
+    ModeratorFactory,
     SubscriptionFactory,
+    UserFactory,
 )
 
 

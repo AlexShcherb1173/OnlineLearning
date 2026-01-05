@@ -2,10 +2,10 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    CourseSubscriptionAPIView,
     CourseViewSet,
     LessonListCreateAPIView,
     LessonRetrieveUpdateDestroyAPIView,
-    CourseSubscriptionAPIView,
 )
 
 """
@@ -49,8 +49,11 @@ urlpatterns = [
         LessonRetrieveUpdateDestroyAPIView.as_view(),
         name="lesson-detail",
     ),
-    path("courses/<int:course_id>/subscribe/", CourseSubscriptionAPIView.as_view(), name="course-subscribe"),
-
+    path(
+        "courses/<int:course_id>/subscribe/",
+        CourseSubscriptionAPIView.as_view(),
+        name="course-subscribe",
+    ),
 ]
 
 urlpatterns += router.urls
