@@ -172,7 +172,7 @@ class Payment(models.Model):
         ordering = ["-paid_at"]
         constraints = [
             CheckConstraint(
-                check=(
+                condition=(
                     (Q(course__isnull=False) & Q(lesson__isnull=True))
                     | (Q(course__isnull=True) & Q(lesson__isnull=False))
                 ),

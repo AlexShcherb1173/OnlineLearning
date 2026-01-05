@@ -23,6 +23,9 @@ psycopg2-binary==2.9.11
 pycodestyle==2.14.0
 pyflakes==3.4.0
 python-dotenv==1.2.1
+pytest
+pytest-django
+pytest-cov
 pytokens==0.3.0
 redis==5.0.8
 setuptools==80.9.0

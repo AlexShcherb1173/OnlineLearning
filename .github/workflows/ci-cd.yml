@@ -43,7 +43,18 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: config.settings
         run: |
-          python -m pytest -q
+           python -m pytest -q \
+            --cov=lms --cov=users --cov=config \
+            --cov-report=term-missing \
+            --cov-report=html:htmlcov \
+            --cov-fail-under=70
+
+      - name: Upload coverage html report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: htmlcov
 
   deploy:
     name: Deploy to server (copy + docker compose up)
