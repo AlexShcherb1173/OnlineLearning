@@ -8,17 +8,18 @@ permissions:
   contents: read
 
 concurrency:
-  group: onlinelearning-deploy
+  group: onlinelearning-feature
   cancel-in-progress: true
 
 env:
   DEPLOY_DIR: /opt/onlinelearning
-  SSH_PORT: "22"
+  COMPOSE_FILE: docker-compose.prod.yaml
 
 jobs:
   test:
     name: Lint & Tests
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,6 +28,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Install deps
         run: |
@@ -40,7 +42,7 @@ jobs:
         run: pytest -q
 
   deploy:
-    name: Deploy to YandexCloud (rsync + docker compose)
+    name: Deploy to server (copy + docker compose up)
     needs: test
     runs-on: ubuntu-latest
 
@@ -48,38 +50,104 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Кладём приватный ключ в файл
       - name: Setup SSH key
+        shell: bash
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf "%s" "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-      # Чтобы не было интерактива по known_hosts
-      - name: Add server to known_hosts
-        run: |
-          ssh-keyscan -p "${{ env.SSH_PORT }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          # known_hosts (без интерактива)
+          ssh-keyscan -p "${{ secrets.SSH_PORT }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Ensure deploy dir exists
+        shell: bash
         run: |
-          ssh -p "${{ env.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "sudo mkdir -p '${{ env.DEPLOY_DIR }}' && sudo chown -R '${{ secrets.SSH_USER }}':'${{ secrets.SSH_USER }}' '${{ env.DEPLOY_DIR }}'"
+          set -euo pipefail
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+          'sudo mkdir -p /opt/onlinelearning/.tmp && sudo chown -R "$USER:$USER" /opt/onlinelearning'
 
-      - name: Rsync project to server (safe)
+      - name: Pack release (exclude secrets & junk)
+        shell: bash
         run: |
-          rsync -az --delete \
-            --exclude ".git" \
-            --exclude ".env" \
-            --exclude ".env.docker" \
-            --exclude ".venv" \
-            --exclude "__pycache__" \
-            --exclude ".idea" \
-            --exclude ".pytest_cache" \
-            --exclude ".mypy_cache" \
-            --exclude "htmlcov" \
-            --exclude ".coverage" \
-            -e "ssh -p ${{ env.SSH_PORT }}" \
-            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_DIR }}/"
+          set -euo pipefail
+          TAR="release_${GITHUB_SHA}.tar.gz"
 
-      - name: Deploy on server (docker compose)
+          tar \
+            --exclude=".git" \
+            --exclude=".env" \
+            --exclude=".env.docker" \
+            --exclude=".venv" \
+            --exclude="__pycache__" \
+            --exclude=".idea" \
+            --exclude=".pytest_cache" \
+            --exclude=".mypy_cache" \
+            --exclude="htmlcov" \
+            --exclude=".coverage" \
+            --exclude="celerybeat-schedule" \
+            -czf "$TAR" .
+
+          echo "TAR_NAME=$TAR" >> $GITHUB_ENV
+
+      - name: Upload release to server
+        shell: bash
         run: |
-          ssh -p "${{ env.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "bash -lc '${{ env.DEPLOY_DIR }}/deploy/deploy.sh'"
+          set -euo pipefail
+          scp -P "${{ secrets.SSH_PORT }}" "${{ env.TAR_NAME }}" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_DIR }}/.tmp/${{ env.TAR_NAME }}"
+
+      - name: Apply release on server (safe update)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" << 'SSH'
+          set -euo pipefail
+
+          DEPLOY_DIR="/opt/onlinelearning"
+          TAR_PATH="$(ls -t "$DEPLOY_DIR/.tmp"/release_*.tar.gz | head -n 1)"
+          STAGE_DIR="$DEPLOY_DIR/.tmp/stage_${RANDOM}_${RANDOM}"
+
+          mkdir -p "$STAGE_DIR"
+          tar -xzf "$TAR_PATH" -C "$STAGE_DIR"
+
+          # обязательные файлы должны быть в релизе
+          test -f "$STAGE_DIR/docker-compose.prod.yaml"
+          test -f "$STAGE_DIR/Dockerfile"
+          test -f "$STAGE_DIR/manage.py"
+
+          # ВАЖНО: .env.docker не трогаем
+          # аккуратно удаляем старый код (кроме .env.docker и .tmp)
+          find "$DEPLOY_DIR" -maxdepth 1 -mindepth 1 \
+            ! -name ".env.docker" \
+            ! -name ".tmp" \
+            -exec rm -rf {} +
+
+          # переносим новый код
+          cp -a "$STAGE_DIR/." "$DEPLOY_DIR/"
+
+          # cleanup
+          rm -rf "$STAGE_DIR"
+          rm -f "$TAR_PATH"
+          SSH
+
+      - name: Verify .env.docker exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+          'test -f /opt/onlinelearning/.env.docker'
+
+      - name: Run deploy script
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+          'bash /opt/onlinelearning/deploy/deploy.sh'
+
+      - name: Show status
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+          'cd /opt/onlinelearning && docker compose -f docker-compose.prod.yaml --env-file .env.docker ps'
