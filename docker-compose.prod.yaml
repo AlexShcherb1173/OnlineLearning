@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
 
   migrate:
-    image: ghcr.io/alexshcherb1173/onlinelearning:latest
+    build: .
     env_file: [ .env.docker ]
     depends_on:
       db:
@@ -37,7 +37,7 @@ services:
     restart: "no"
 
   web:
-    image: ghcr.io/alexshcherb1173/onlinelearning:latest
+    build: .
     env_file: [ .env.docker ]
     depends_on:
       db:
@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
 
   celery:
-    image: ghcr.io/alexshcherb1173/onlinelearning:latest
+    build: .
     env_file: [ .env.docker ]
     depends_on:
       db:
@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   celery_beat:
-    image: ghcr.io/alexshcherb1173/onlinelearning:latest
+    build: .
     env_file: [ .env.docker ]
     depends_on:
       db:
