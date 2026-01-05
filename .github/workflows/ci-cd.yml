@@ -13,13 +13,12 @@ concurrency:
 
 env:
   DEPLOY_DIR: /opt/onlinelearning
-  COMPOSE_FILE: docker-compose.prod.yaml
+  SSH_PORT: "22"
 
 jobs:
   test:
     name: Lint & Tests
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +40,7 @@ jobs:
         run: pytest -q
 
   deploy:
-    name: Deploy (build on server)
+    name: Deploy to YandexCloud (rsync + docker compose)
     needs: test
     runs-on: ubuntu-latest
 
@@ -49,64 +48,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install rsync
-        run: sudo apt-get update && sudo apt-get install -y rsync
-
-      - name: Add SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add known_hosts
+      # Кладём приватный ключ в файл
+      - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
 
-      - name: Prepare server dirs (safe)
+      # Чтобы не было интерактива по known_hosts
+      - name: Add server to known_hosts
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" <<'SSH'
-          set -euo pipefail
-          DEPLOY_DIR="${{ env.DEPLOY_DIR }}"
-          sudo mkdir -p "$DEPLOY_DIR"
-          sudo chown -R "$USER:$USER" "$DEPLOY_DIR"
-          mkdir -p "$DEPLOY_DIR/deploy"
-          if [ ! -f "$DEPLOY_DIR/.env.docker" ]; then
-            echo "ERROR: $DEPLOY_DIR/.env.docker not found. Create it on server (copy from .env.docker.sample)."
-            exit 1
-          fi
-          SSH
+          ssh-keyscan -p "${{ env.SSH_PORT }}" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Upload project to /opt/onlinelearning (exclude secrets)
+      - name: Ensure deploy dir exists
+        run: |
+          ssh -p "${{ env.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "sudo mkdir -p '${{ env.DEPLOY_DIR }}' && sudo chown -R '${{ secrets.SSH_USER }}':'${{ secrets.SSH_USER }}' '${{ env.DEPLOY_DIR }}'"
+
+      - name: Rsync project to server (safe)
         run: |
           rsync -az --delete \
-            --exclude ".git/" \
-            --exclude ".github/" \
+            --exclude ".git" \
             --exclude ".env" \
             --exclude ".env.docker" \
-            --exclude ".venv/" \
-            --exclude "__pycache__/" \
-            --exclude ".idea/" \
-            -e "ssh -p ${{ secrets.SSH_PORT }}" \
+            --exclude ".venv" \
+            --exclude "__pycache__" \
+            --exclude ".idea" \
+            --exclude ".pytest_cache" \
+            --exclude ".mypy_cache" \
+            --exclude "htmlcov" \
+            --exclude ".coverage" \
+            -e "ssh -p ${{ env.SSH_PORT }}" \
             ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.DEPLOY_DIR }}/"
 
-      - name: Deploy with docker compose (safe up)
+      - name: Deploy on server (docker compose)
         run: |
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" <<'SSH'
-          set -euo pipefail
-          DEPLOY_DIR="${{ env.DEPLOY_DIR }}"
-          COMPOSE_FILE="${{ env.COMPOSE_FILE }}"
-
-          cd "$DEPLOY_DIR"
-
-          echo "[1/4] Build images"
-          docker compose -f "$COMPOSE_FILE" --env-file .env.docker build --no-cache
-
-          echo "[2/4] Up (no downtime-ish)"
-          docker compose -f "$COMPOSE_FILE" --env-file .env.docker up -d --remove-orphans
-
-          echo "[3/4] Status"
-          docker compose -f "$COMPOSE_FILE" ps
-
-          echo "[4/4] Nginx test (inside container)"
-          docker compose -f "$COMPOSE_FILE" exec -T nginx nginx -t
-          SSH
+          ssh -p "${{ env.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" "bash -lc '${{ env.DEPLOY_DIR }}/deploy/deploy.sh'"
