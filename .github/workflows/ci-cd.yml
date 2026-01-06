@@ -143,27 +143,16 @@ jobs:
           ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
           'sudo mkdir -p /opt/onlinelearning/.tmp && sudo chown -R "$USER:$USER" /opt/onlinelearning'
 
-      - name: Pack release (exclude secrets & junk)
+      - name: Pack release (tracked files only)
         shell: bash
         run: |
           set -euo pipefail
           TAR="release_${GITHUB_SHA}.tar.gz"
 
-          tar \
-            --exclude=".git" \
-            --exclude=".env" \
-            --exclude=".env.docker" \
-            --exclude=".venv" \
-            --exclude="__pycache__" \
-            --exclude=".idea" \
-            --exclude=".pytest_cache" \
-            --exclude=".mypy_cache" \
-            --exclude="htmlcov" \
-            --exclude=".coverage" \
-            --exclude="celerybeat-schedule" \
-            -czf "$TAR" .
+          # только файлы из git (никаких htmlcov/.coverage/celerybeat-schedule и т.п.)
+          git archive --format=tar.gz -o "$TAR" HEAD
 
-          echo "TAR_NAME=$TAR" >> $GITHUB_ENV
+          echo "TAR_NAME=$TAR" >> "$GITHUB_ENV"
 
       - name: Upload release to server
         shell: bash
