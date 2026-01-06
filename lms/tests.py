@@ -1,15 +1,15 @@
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from lms.models import Course, Lesson, Subscription
 from tests.factories import (
     AdminFactory,
-    UserFactory,
-    ModeratorFactory,
     CourseFactory,
     LessonFactory,
+    ModeratorFactory,
     SubscriptionFactory,
+    UserFactory,
 )
 
 
@@ -162,7 +162,7 @@ class SubscriptionTests(APITestCase):
         self.course = CourseFactory(owner=self.user)
 
     def test_subscription_requires_auth(self):
-        url = reverse("course-subscribe")
+        url = reverse("course-subscribe", kwargs={"course_id": self.course.id})
         response = self.client.post(url, {"course_id": self.course.id}, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -170,7 +170,7 @@ class SubscriptionTests(APITestCase):
         """
         Если подписки нет — создаётся.
         """
-        url = reverse("course-subscribe")
+        url = reverse("course-subscribe", kwargs={"course_id": self.course.id})
         self.client.force_authenticate(self.user)
 
         response = self.client.post(url, {"course_id": self.course.id}, format="json")
@@ -186,7 +186,7 @@ class SubscriptionTests(APITestCase):
         """
         SubscriptionFactory(user=self.user, course=self.course)
 
-        url = reverse("course-subscribe")
+        url = reverse("course-subscribe", kwargs={"course_id": self.course.id})
         self.client.force_authenticate(self.user)
 
         response = self.client.post(url, {"course_id": self.course.id}, format="json")

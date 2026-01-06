@@ -3,21 +3,22 @@ from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiTypes,
     extend_schema,
     extend_schema_view,
-    OpenApiTypes,
-    OpenApiParameter,
 )
-from rest_framework import viewsets, generics, status
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework import generics, status, viewsets
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from users.permissions import IsModeratorOrAdmin, IsOwner
 
 from .models import Course, Lesson, Subscription
 from .paginators import StandardResultsSetPagination
 from .serializers import CourseSerializer, LessonSerializer
 from .tasks import send_course_update_notifications
-from users.permissions import IsModeratorOrAdmin, IsOwner
 
 
 @extend_schema_view(

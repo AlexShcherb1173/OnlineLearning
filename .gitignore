@@ -1,5 +1,7 @@
 ﻿# Python
 __pycache__/
+.pytest_cache/
+.mypy_cache/
 *.py[cod]
 *.pyo
 *.pyd
@@ -20,9 +22,15 @@ staticfiles/
 .vscode/
 
 # Env files
-.env
+.env.docker
 .env.*.local
+.env
+.env.*
+!.env.docker.sample
+!.env.docker_example
 
 # OS
 Thumbs.db
 .DS_Store
+htmlcov/
+.coverage

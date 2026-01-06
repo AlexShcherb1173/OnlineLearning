@@ -1,9 +1,8 @@
 import factory
-from django.utils import timezone
-
-from factory.django import DjangoModelFactory
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.utils import timezone
+from factory.django import DjangoModelFactory
 
 from lms.models import Course, Lesson, Subscription
 from users.models import Payment  # если модель Payment в users
