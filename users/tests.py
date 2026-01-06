@@ -1,14 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APIClient, APITestCase
 
 from tests.factories import (
-    UserFactory,
     AdminFactory,
     CourseFactory,
     LessonFactory,
     PaymentFactory,
+    UserFactory,
 )
 
 User = get_user_model()
@@ -35,7 +35,10 @@ class UserAuthTests(APITestCase):
         self.assertTrue(User.objects.filter(email="newuser@example.com").exists())
 
     def test_obtain_jwt_token(self):
-        user = UserFactory(email="jwtuser@example.com", password="jwtpass123")
+        user = UserFactory(email="jwtuser@example.com")
+        user.set_password("jwtpass123")
+        user.save()
+
         url = reverse("token_obtain_pair")
 
         data = {"email": "jwtuser@example.com", "password": "jwtpass123"}
@@ -127,12 +130,12 @@ class PaymentEndpointTests(APITestCase):
         )
 
     def test_payments_list_requires_auth(self):
-        url = reverse("payment-list")
+        url = reverse("payment-list-all")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_payments_list_authenticated(self):
-        url = reverse("payment-list")
+        url = reverse("payment-list-all")
         self.client.force_authenticate(self.user)
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -147,7 +150,7 @@ class PaymentEndpointTests(APITestCase):
 
     def test_filter_by_course(self):
         self.client.force_authenticate(self.user)
-        url = reverse("payment-list")
+        url = reverse("payment-list-all")
         response = self.client.get(url, {"course": self.course.id})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -164,7 +167,7 @@ class PaymentEndpointTests(APITestCase):
 
     def test_filter_by_lesson(self):
         self.client.force_authenticate(self.user)
-        url = reverse("payment-list")
+        url = reverse("payment-list-all")
         response = self.client.get(url, {"lesson": self.lesson.id})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -181,7 +184,7 @@ class PaymentEndpointTests(APITestCase):
 
     def test_filter_by_payment_method(self):
         self.client.force_authenticate(self.user)
-        url = reverse("payment-list")
+        url = reverse("payment-list-all")
         response = self.client.get(
             url, {"payment_method": self.payment1.payment_method}
         )

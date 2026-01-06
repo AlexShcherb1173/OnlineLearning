@@ -1,7 +1,7 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.conf import settings
-from django.db.models import Q, CheckConstraint
+from django.db.models import CheckConstraint, Q
 
 from lms.models import Course, Lesson
 
@@ -172,7 +172,7 @@ class Payment(models.Model):
         ordering = ["-paid_at"]
         constraints = [
             CheckConstraint(
-                check=(
+                condition=(
                     (Q(course__isnull=False) & Q(lesson__isnull=True))
                     | (Q(course__isnull=True) & Q(lesson__isnull=False))
                 ),

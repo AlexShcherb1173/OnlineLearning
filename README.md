@@ -315,16 +315,16 @@ def perform_create(self, serializer):
 администратор видит всё.  
 #### Матрица прав
 
-| Действие                 | Пользователь | Модератор | Администратор |
-|--------------------------|--------------|-----------|----------------|
-| Просмотр своих объектов  | ✔            | ✔         | ✔              |
-| Просмотр чужих объектов  | ✘            | ✔         | ✔              |
-| Создание курсов/уроков   | опционально* | ✘         | ✔              |
-| Редактирование своих     | ✔            | ✔         | ✔              |
-| Редактирование чужих     | ✘            | ✔         | ✔              |
-| Удаление своих           | ✔            | ✘         | ✔              |
-| Удаление чужих           | ✘            | ✘         | ✔              |
-| Доступ к админке         | ✘            | ✘         | ✔              |
+| Действие                 | Пользователь | Модератор | Администратор |  
+|--------------------------|--------------|-----------|----------------|  
+| Просмотр своих объектов  | ✔            | ✔         | ✔              |  
+| Просмотр чужих объектов  | ✘            | ✔         | ✔              |  
+| Создание курсов/уроков   | опционально* | ✘         | ✔              |  
+| Редактирование своих     | ✔            | ✔         | ✔              |  
+| Редактирование чужих     | ✘            | ✔         | ✔              |  
+| Удаление своих           | ✔            | ✘         | ✔              |  
+| Удаление чужих           | ✘            | ✘         | ✔              |  
+| Доступ к админке         | ✘            | ✘         | ✔              |  
 
 * В текущей реализации проекта создавать курсы/уроки может только администратор.
 
@@ -345,5 +345,244 @@ black .
 isort .  
 flake8  
 
-### Лицензия
-Свободное использование в образовательных целях.
+### Deploy & CI/CD (Production)
+
+Этот проект использует GitHub Actions + Docker Compose   для автоматического деплоя на удалённый Linux-сервер по SSH.
+Docker управляет контейнерами  
+systemd (опционально) — процессом деплоя  
+GitHub Actions — сборкой, тестами и доставкой кода  
+
+#### Требования к серверу
+Удалённый сервер (Ubuntu 20.04+ рекомендуется):  
+Docker ≥ 24  
+Docker Compose v2  
+SSH-дoступ (по ключу)
+
+Открытые порты:
+80 — nginx
+443 — (если планируется HTTPS)  
+
+Пользователь с правами sudo
+
+##### Установка Docker и Compose  
+sudo apt update  
+sudo apt install -y ca-certificates curl gnupg    
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER  
+newgrp docker
+docker --version  
+docker compose version  
+
+#### Структура на сервере
+
+Проект разворачивается в каталоге:  
+/opt/onlinelearning
+
+Минимально ожидаемая структура:  
+
+/opt/onlinelearning  
+├── docker-compose.prod.yaml  
+├── Dockerfile  
+├── manage.py  
+├── nginx/  
+│   └── nginx.conf  
+├── deploy/  
+│   └── deploy.sh  
+├── .env.docker        # ❗ хранится только на сервере  
+└── .tmp/              # временные файлы деплоя  
+
+#### Подготовка SSH
+1. Создай SSH-ключ (локально)  
+ssh-keygen -t ed25519 -C "github-deploy"  
+
+2. Добавь публичный ключ на сервер  
+ssh-copy-id user@SERVER_IP
+
+Проверь вход:  
+ssh user@SERVER_IP
+
+#### GitHub Secrets
+
+В репозитории GitHub открой:  
+Settings → Secrets and variables → Actions → New repository secret  
+
+Добавь следующие секреты:
+
+Имя	Описание  
+SSH_HOST--------------	IP или домен сервера  
+SSH_PORT--------------	Обычно 22  
+SSH_USER--------------	Пользователь на сервере  
+SSH_PRIVATE_KEY---	Приватный ключ id_ed25519  
+
+⚠️ Важно: ключ добавляется целиком, включая строки BEGIN/END.
+
+#### Конфигурация окружения (.env.docker)
+
+Файл не хранится в git и создаётся только на сервере:  
+
+nano /opt/onlinelearning/.env.docker  
+
+Пример:
+
+DJANGO_SECRET_KEY=super-secret-key  
+DJANGO_DEBUG=False  
+DJANGO_ALLOWED_HOSTS=example.com,www.example.com  
+
+POSTGRES_DB=onlinelearning  
+POSTGRES_USER=postgres  
+POSTGRES_PASSWORD=postgres  
+POSTGRES_HOST=db  
+POSTGRES_PORT=5432  
+
+REDIS_HOST=redis  
+REDIS_PORT=6379  
+REDIS_DB=0  
+
+TIME_ZONE=Europe/Amsterdam  
+LANGUAGE_CODE=en-us  
+
+#### CI/CD Workflow (GitHub Actions)  
+
+##### Workflow делает следующее:
+Checkout кода  
+Запуск тестов (pytest)  
+Архивация только файлов из git  
+Копирование архива на сервер по SSH  
+Безопасная замена кода в /opt/onlinelearning  
+Запуск deploy/deploy.sh  
+docker compose up -d  
+Триггер workflow  
+
+##### Workflow запускается автоматически:
+
+при push в ветку main (или feature, если указано)  
+либо вручную (если добавлен workflow_dispatch)  
+
+#### deploy.sh (что делает)
+
+##### Скрипт deploy/deploy.sh:  
+
+Проверяет окружение  
+Пересобирает Docker-образы  
+Поднимает инфраструктуру (Postgres, Redis)  
+Выполняет миграции  
+Запускает:  
+
+Django (Gunicorn)  
+Celery  
+Celery Beat  
+Nginx  
+
+Показывает статус контейнеров  
+
+#### Запуск вручную на сервере:    
+
+cd /opt/onlinelearning  
+bash deploy/deploy.sh  
+
+#### Проверка после деплоя
+Контейнеры  
+docker compose -f docker-compose.prod.yaml --env-file .env.docker ps  
+
+Ожидаемый статус:  
+web — Up  
+nginx — Up  
+db — Healthy  
+redis — Healthy  
+celery — Up  
+celery_beat — Up  
+
+#### Проверка API  
+curl http://SERVER_IP/  
+
+Ответ:  
+OK  
+
+#### Swagger:  
+
+http://SERVER_IP/api/docs/swagger/  
+
+#### Тесты и Celery в CI
+
+В CI используется режим:  
+
+CELERY_TASK_ALWAYS_EAGER=True  
+CELERY_TASK_EAGER_PROPAGATES=True  
+
+Это позволяет:  
+запускать тесты без Redis  
+выполнять Celery-задачи синхронно  
+избежать падений в GitHub Actions  
+
+#### systemd: автозапуск и управление деплоем  
+
+В продакшене systemd управляет деплоем,  
+а Docker — контейнерами.  
+Это даёт:
+
+автозапуск после перезагрузки сервера  
+единый контроль (start / stop / restart / status)  
+безопасный деплой через docker compose up -d  
+
+##### systemd unit-файл  
+
+Создай файл на сервере:  
+sudo nano /etc/systemd/system/onlinelearning.service  
+/etc/systemd/system/onlinelearning.service  
+[Unit]  
+Description=OnlineLearning Docker Stack  
+After=docker.service  
+Requires=docker.service  
+  
+[Service]  
+Type=oneshot  
+RemainAfterExit=yes  
+WorkingDirectory=/opt/onlinelearning  
+  
+ExecStart=/usr/bin/docker compose \  
+  -f docker-compose.prod.yaml \  
+  --env-file .env.docker \  
+  up -d  
+  
+ExecStop=/usr/bin/docker compose \  
+  -f docker-compose.prod.yaml \  
+  --env-file .env.docker \  
+  down  
+  
+TimeoutStartSec=0  
+  
+[Install]  
+WantedBy=multi-user.target  
+
+##### Активация systemd-сервиса  
+sudo systemctl daemon-reload  
+sudo systemctl enable onlinelearning  
+sudo systemctl start onlinelearning  
+
+##### Проверка статуса:  
+ 
+sudo systemctl status onlinelearning  
+
+##### Управление деплоем через systemd  
+<u>Действие</u> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<u>Команда </u>    <br>Запуск&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sudo systemctl start onlinelearning  
+Остановка	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sudo systemctl stop onlinelearning  
+Перезапуск	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sudo systemctl restart onlinelearning  
+Статус	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sudo systemctl status onlinelearning  
+Логи	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;journalctl -u onlinelearning -f  
+##### Как это работает вместе с CI/CD
+  
+GitHub Actions обновляет код в /opt/onlinelearning  
+deploy.sh пересобирает образы и контейнеры  
+systemd гарантирует:  
+автозапуск после reboot  
+стабильный продакшен-процесс  
+
+Важно: systemd не следит за кодом, он управляет состоянием приложения.
+
+#### Важно помнить
+
+❌ .env.docker никогда не коммитится  
+❌ секреты не хранятся в репозитории  
+✅ git archive гарантирует чистый релиз  
+✅ деплой идёт атомарно (через stage-директорию)  
+✅ Docker volumes не монтируют несуществующие файлы  
