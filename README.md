@@ -409,10 +409,10 @@ Settings → Secrets and variables → Actions → New repository secret
 Добавь следующие секреты:
 
 Имя	Описание  
-SSH_HOST	IP или домен сервера  
-SSH_PORT	Обычно 22  
-SSH_USER	Пользователь на сервере  
-SSH_PRIVATE_KEY	Приватный ключ id_ed25519  
+SSH_HOST--------------	IP или домен сервера  
+SSH_PORT--------------	Обычно 22  
+SSH_USER--------------	Пользователь на сервере  
+SSH_PRIVATE_KEY---	Приватный ключ id_ed25519  
 
 ⚠️ Важно: ключ добавляется целиком, включая строки BEGIN/END.
 
@@ -444,14 +444,14 @@ LANGUAGE_CODE=en-us
 #### CI/CD Workflow (GitHub Actions)  
 
 ##### Workflow делает следующее:
-Checkout кода
-Запуск тестов (pytest)
-Архивация только файлов из git
-Копирование архива на сервер по SSH
-Безопасная замена кода в /opt/onlinelearning
-Запуск deploy/deploy.sh
-docker compose up -d
-Триггер workflow
+Checkout кода  
+Запуск тестов (pytest)  
+Архивация только файлов из git  
+Копирование архива на сервер по SSH  
+Безопасная замена кода в /opt/onlinelearning  
+Запуск deploy/deploy.sh  
+docker compose up -d  
+Триггер workflow  
 
 ##### Workflow запускается автоматически:
 
@@ -516,7 +516,8 @@ CELERY_TASK_EAGER_PROPAGATES=True
 
 #### systemd: автозапуск и управление деплоем  
 
-В продакшене systemd управляет деплоем, а Docker — контейнерами.  
+В продакшене systemd управляет деплоем,  
+а Docker — контейнерами.  
 Это даёт:
 
 автозапуск после перезагрузки сервера  
