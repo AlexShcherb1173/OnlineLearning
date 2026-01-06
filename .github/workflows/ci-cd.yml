@@ -140,8 +140,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-          'sudo mkdir -p /opt/onlinelearning/.tmp && sudo chown -R "$USER:$USER" /opt/onlinelearning'
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" << 'SSH'
+          set -euo pipefail
+          sudo mkdir -p /opt/onlinelearning/.tmp
+          sudo chown -R "$(id -un):$(id -gn)" /opt/onlinelearning
+          SSH
 
       - name: Pack release (tracked files only)
         shell: bash
@@ -205,8 +208,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-          'bash /opt/onlinelearning/deploy/deploy.sh'
+          ssh -p "${{ secrets.SSH_PORT }}" "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" << 'SSH'
+          set -euo pipefail
+          cd /opt/onlinelearning
+            
+          # sanity-check: нужные файлы реально на месте
+          test -f deploy/deploy.sh || (echo "ERROR: deploy/deploy.sh missing in /opt/onlinelearning" && exit 1)
+          test -f docker-compose.prod.yaml || (echo "ERROR: docker-compose.prod.yaml missing" && exit 1)
+          test -f nginx/nginx.conf || (echo "ERROR: nginx/nginx.conf missing" && exit 1)
+            
+          # safety: убедимся, что compose не ссылается на deploy/nginx.conf
+          if grep -q "deploy/nginx.conf" docker-compose.prod.yaml; then
+            echo "ERROR: docker-compose.prod.yaml still references deploy/nginx.conf"
+            exit 1
+          fi
+            
+          bash deploy/deploy.sh
+          SSH
 
       - name: Show status
         shell: bash
