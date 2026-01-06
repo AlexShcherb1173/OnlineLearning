@@ -266,6 +266,7 @@ CELERY_ENABLE_UTC = True
 # Celery — тестовый / CI режим (без Redis)
 # -------------------------------------------------
 
+
 def env_bool(name: str, default: bool = False) -> bool:
     val = os.getenv(name)
     if val is None:
