@@ -61,6 +61,12 @@ jobs:
       STRIPE_SUCCESS_URL: "http://localhost/success"
       STRIPE_CANCEL_URL: "http://localhost/cancel"
 
+      DJANGO_SETTINGS_MODULE: config.settings
+      SECRET_KEY: test-secret-key
+
+      CELERY_TASK_ALWAYS_EAGER: "True"
+      CELERY_TASK_EAGER_PROPAGATES: "True"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

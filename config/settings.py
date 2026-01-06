@@ -20,6 +20,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from celery.schedules import crontab
+from coverage import env
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения из файла .env.docker
@@ -260,6 +261,12 @@ CELERY_RESULT_SERIALIZER = "json"
 
 CELERY_TIMEZONE = TIME_ZONE  # тот же, что и у Django
 CELERY_ENABLE_UTC = True
+
+# -------------------------------------------------
+# Celery — тестовый / CI режим (без Redis)
+# -------------------------------------------------
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+CELERY_TASK_EAGER_PROPAGATES = env.bool("CELERY_TASK_EAGER_PROPAGATES", default=True)
 
 # расписания для celery-beat.
 
