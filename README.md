@@ -345,145 +345,243 @@ black .
 isort .  
 flake8  
 
-## 🚀 Запуск проекта через Docker Compose
+### Deploy & CI/CD (Production)
 
-Для удобного запуска всех частей проекта используется **docker-compose**.  
-Это позволяет поднять backend, базу данных, Redis и Celery одной командой без ручного управления контейнерами.
+Этот проект использует GitHub Actions + Docker Compose   для автоматического деплоя на удалённый Linux-сервер по SSH.
+Docker управляет контейнерами  
+systemd (опционально) — процессом деплоя  
+GitHub Actions — сборкой, тестами и доставкой кода  
 
----
-### Требования
-- Установлен Docker Desktop
-- Включён движок **Linux containers** (Docker Desktop обычно сам)
-- В корне проекта лежат файлы:
-  - `Dockerfile`
-  - `docker-compose.yaml`
-  - `.env` 
-  - `requirements.txt`
-### 📦 Используемые сервисы
+#### Требования к серверу
+Удалённый сервер (Ubuntu 20.04+ рекомендуется):  
+Docker ≥ 24  
+Docker Compose v2  
+SSH-дoступ (по ключу)
 
-В `docker-compose.yaml` описаны следующие сервисы:
+Открытые порты:
+80 — nginx
+443 — (если планируется HTTPS)  
 
-- **backend** — Django REST API
-- **db** — PostgreSQL
-- **redis** — брокер сообщений для Celery
-- **celery** — Celery worker
-- **celery_beat** — Celery Beat (планировщик задач)
+Пользователь с правами sudo
 
-Все сервисы используют переменные окружения из файла `.env`.
+##### Установка Docker и Compose  
+sudo apt update  
+sudo apt install -y ca-certificates curl gnupg    
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER  
+newgrp docker
+docker --version  
+docker compose version  
 
----
+#### Структура на сервере
 
-### 📄 Переменные окружения
+Проект разворачивается в каталоге:  
+/opt/onlinelearning
 
-В корне проекта должен находиться файл `.env`.
+Минимально ожидаемая структура:  
 
-Шаблон файла — `.env.sample`:
+/opt/onlinelearning  
+├── docker-compose.prod.yaml  
+├── Dockerfile  
+├── manage.py  
+├── nginx/  
+│   └── nginx.conf  
+├── deploy/  
+│   └── deploy.sh  
+├── .env.docker        # ❗ хранится только на сервере  
+└── .tmp/              # временные файлы деплоя  
 
-```env
-# === Django ===
-DJANGO_SECRET_KEY=CHANGE_ME
-DJANGO_DEBUG=True
-DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+#### Подготовка SSH
+1. Создай SSH-ключ (локально)  
+ssh-keygen -t ed25519 -C "github-deploy"  
 
-# === I18N ===
-LANGUAGE_CODE=ru
-TIME_ZONE=Europe/Amsterdam
+2. Добавь публичный ключ на сервер  
+ssh-copy-id user@SERVER_IP
 
-# === PostgreSQL ===
-POSTGRES_DB=OnlineLearning_db
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=CHANGE_ME
-POSTGRES_HOST=127.0.0.1
-POSTGRES_PORT=5432
+Проверь вход:  
+ssh user@SERVER_IP
 
-# === SMTP ===
-SMTP_BACKEND=django.core.mail.backends.smtp.EmailBackend
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USE_TLS=True
-SMTP_USER=CHANGE_ME
-SMTP_PASSWORD=CHANGE_ME
+#### GitHub Secrets
 
-DJANGO_DEFAULT_ADMIN_EMAIL=superadmin@example.com
-DJANGO_DEFAULT_ADMIN_PASSWORD=CHANGE_ME
+В репозитории GitHub открой:  
+Settings → Secrets and variables → Actions → New repository secret  
 
-# === Stripe ===
-STRIPE_SECRET_KEY=sk_test_CHANGE_ME
-STRIPE_PUBLISHABLE_KEY=pk_test_CHANGE_ME
-STRIPE_SUCCESS_URL=http://127.0.0.1:8000/payments/success/
-STRIPE_CANCEL_URL=http://127.0.0.1:8000/payments/cancel/
+Добавь следующие секреты:
 
-# === Redis ===
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_DB=0
-REDIS_PASSWORD=
-```
-⚠️ Важно:
+Имя	Описание  
+SSH_HOST	IP или домен сервера  
+SSH_PORT	Обычно 22  
+SSH_USER	Пользователь на сервере  
+SSH_PRIVATE_KEY	Приватный ключ id_ed25519  
 
-файл .env не должен попадать в репозиторий  
-в Docker-хосты POSTGRES_HOST и REDIS_HOST автоматически переопределяются на db и redis  
+⚠️ Важно: ключ добавляется целиком, включая строки BEGIN/END.
 
-### ▶️ Запуск проекта  
-Скопировать шаблон окружения:
+#### Конфигурация окружения (.env.docker)
 
-cp .env.sample .env
-Заполнить файл .env актуальными значениями
+Файл не хранится в git и создаётся только на сервере:  
 
-#### Запустить проект:
+nano /opt/onlinelearning/.env.docker  
 
-docker compose up --build
-После запуска сервисы будут доступны:
+Пример:
 
-Backend (Django):
-👉 http://127.0.0.1:8000/
+DJANGO_SECRET_KEY=super-secret-key  
+DJANGO_DEBUG=False  
+DJANGO_ALLOWED_HOSTS=example.com,www.example.com  
 
-Swagger / OpenAPI (если включён):
-👉 http://127.0.0.1:8000/api/schema/swagger-ui/
+POSTGRES_DB=onlinelearning  
+POSTGRES_USER=postgres  
+POSTGRES_PASSWORD=postgres  
+POSTGRES_HOST=db  
+POSTGRES_PORT=5432  
 
-#### ⏹ Остановка проекта
+REDIS_HOST=redis  
+REDIS_PORT=6379  
+REDIS_DB=0  
 
-docker compose down
-#### ♻️ Полный перезапуск с очисткой данных
-Удаляет контейнеры и том с базой данных:
+TIME_ZONE=Europe/Amsterdam  
+LANGUAGE_CODE=en-us  
 
-docker compose down -v
-docker compose up --build
-#### 🔍 Проверка работоспособности сервисов
-Django backend
+#### CI/CD Workflow (GitHub Actions)  
 
-docker compose logs -f backend
-PostgreSQL
+##### Workflow делает следующее:
+Checkout кода
+Запуск тестов (pytest)
+Архивация только файлов из git
+Копирование архива на сервер по SSH
+Безопасная замена кода в /opt/onlinelearning
+Запуск deploy/deploy.sh
+docker compose up -d
+Триггер workflow
 
-docker compose logs -f db
-Redis
+##### Workflow запускается автоматически:
 
-docker compose exec redis redis-cli ping  
-#### Ожидаемый ответ:  
+при push в ветку main (или feature, если указано)  
+либо вручную (если добавлен workflow_dispatch)  
 
-nginx  
+#### deploy.sh (что делает)
 
-PONG  
-Celery worker  
+##### Скрипт deploy/deploy.sh:  
 
-docker compose logs -f celery  
+Проверяет окружение  
+Пересобирает Docker-образы  
+Поднимает инфраструктуру (Postgres, Redis)  
+Выполняет миграции  
+Запускает:  
+
+Django (Gunicorn)  
+Celery  
 Celery Beat  
+Nginx  
 
-docker compose logs -f celery_beat  
-#### ✅ Результат
-После запуска одной командой:
+Показывает статус контейнеров  
 
-Django API доступен
+#### Запуск вручную на сервере:    
 
-PostgreSQL подключён
+cd /opt/onlinelearning  
+bash deploy/deploy.sh  
 
-Redis работает
+#### Проверка после деплоя
+Контейнеры  
+docker compose -f docker-compose.prod.yaml --env-file .env.docker ps  
 
-Celery обрабатывает фоновые задачи
+Ожидаемый статус:  
+web — Up  
+nginx — Up  
+db — Healthy  
+redis — Healthy  
+celery — Up  
+celery_beat — Up  
 
-Celery Beat запускает периодические задачи
+#### Проверка API  
+curl http://SERVER_IP/  
 
-Проект полностью готов к локальной разработке и тестированию.
+Ответ:  
+OK  
 
-### Лицензия
-Свободное использование в образовательных целях.
+#### Swagger:  
+
+http://SERVER_IP/api/docs/swagger/  
+
+#### Тесты и Celery в CI
+
+В CI используется режим:  
+
+CELERY_TASK_ALWAYS_EAGER=True  
+CELERY_TASK_EAGER_PROPAGATES=True  
+
+Это позволяет:  
+запускать тесты без Redis  
+выполнять Celery-задачи синхронно  
+избежать падений в GitHub Actions  
+
+#### systemd: автозапуск и управление деплоем  
+
+В продакшене systemd управляет деплоем, а Docker — контейнерами.  
+Это даёт:
+
+автозапуск после перезагрузки сервера  
+единый контроль (start / stop / restart / status)  
+безопасный деплой через docker compose up -d  
+
+##### systemd unit-файл  
+
+Создай файл на сервере:  
+sudo nano /etc/systemd/system/onlinelearning.service  
+/etc/systemd/system/onlinelearning.service  
+[Unit]  
+Description=OnlineLearning Docker Stack  
+After=docker.service  
+Requires=docker.service  
+  
+[Service]  
+Type=oneshot  
+RemainAfterExit=yes  
+WorkingDirectory=/opt/onlinelearning  
+  
+ExecStart=/usr/bin/docker compose \  
+  -f docker-compose.prod.yaml \  
+  --env-file .env.docker \  
+  up -d  
+  
+ExecStop=/usr/bin/docker compose \  
+  -f docker-compose.prod.yaml \  
+  --env-file .env.docker \  
+  down  
+  
+TimeoutStartSec=0  
+  
+[Install]  
+WantedBy=multi-user.target  
+
+##### Активация systemd-сервиса  
+sudo systemctl daemon-reload  
+sudo systemctl enable onlinelearning  
+sudo systemctl start onlinelearning  
+
+##### Проверка статуса:  
+ 
+sudo systemctl status onlinelearning  
+
+##### Управление деплоем через systemd  
+<u>Действие</u> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<u>Команда </u>    <br>Запуск&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sudo systemctl start onlinelearning  
+Остановка	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sudo systemctl stop onlinelearning  
+Перезапуск	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sudo systemctl restart onlinelearning  
+Статус	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sudo systemctl status onlinelearning  
+Логи	&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;journalctl -u onlinelearning -f  
+##### Как это работает вместе с CI/CD
+  
+GitHub Actions обновляет код в /opt/onlinelearning  
+deploy.sh пересобирает образы и контейнеры  
+systemd гарантирует:  
+автозапуск после reboot  
+стабильный продакшен-процесс  
+
+Важно: systemd не следит за кодом, он управляет состоянием приложения.
+
+#### Важно помнить
+
+❌ .env.docker никогда не коммитится  
+❌ секреты не хранятся в репозитории  
+✅ git archive гарантирует чистый релиз  
+✅ деплой идёт атомарно (через stage-директорию)  
+✅ Docker volumes не монтируют несуществующие файлы  
