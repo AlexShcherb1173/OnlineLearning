@@ -265,11 +265,13 @@ CELERY_ENABLE_UTC = True
 # -------------------------------------------------
 # Celery — тестовый / CI режим (без Redis)
 # -------------------------------------------------
+
 def env_bool(name: str, default: bool = False) -> bool:
     val = os.getenv(name)
     if val is None:
         return default
     return val.strip().lower() in {"1", "true", "yes", "y", "on"}
+
 
 CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 CELERY_TASK_EAGER_PROPAGATES = env_bool("CELERY_TASK_EAGER_PROPAGATES", True)
