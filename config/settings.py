@@ -20,7 +20,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from celery.schedules import crontab
-from coverage import env
+
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения из файла .env.docker
@@ -265,8 +265,14 @@ CELERY_ENABLE_UTC = True
 # -------------------------------------------------
 # Celery — тестовый / CI режим (без Redis)
 # -------------------------------------------------
-CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
-CELERY_TASK_EAGER_PROPAGATES = env.bool("CELERY_TASK_EAGER_PROPAGATES", default=True)
+def env_bool(name: str, default: bool = False) -> bool:
+    val = os.getenv(name)
+    if val is None:
+        return default
+    return val.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
+CELERY_TASK_EAGER_PROPAGATES = env_bool("CELERY_TASK_EAGER_PROPAGATES", True)
 
 # расписания для celery-beat.
 
